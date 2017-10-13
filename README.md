@@ -1,2 +1,2 @@
 # RPG
-RPG game prototype
+Random Games
