@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Math Stuff</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">;
+    <script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js"></script>
+</head>
+
+<body>
+    <h2>Rotate Point Around Another 2D</h2>
+    <div class="row">
+        <div class="code_block col-sm-6">
+            <pre>
+                <code class="prettyprint language-javascript">
+function rotatePoint(c,p,theta){
+    var cos = Math.cos(theta);
+    var sin = Math.sin(theta);
+    return {
+        x: cos*(p.x-c.x) - sin*(p.y-c.y) + c.x, 
+        y: sin*(p.x-c.x) + cos*(p.y-c.y) + c.y
+    };
+}
+//  for counterclockwise rotation negate (p.x-c.x) on the y
+                </code>
+            </pre>
+        </div> <!-- end of code div -->
+    </div> <!-- end of row -->
+</body>
+<footer>
+
+</footer>
+
+</html>
