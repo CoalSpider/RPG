@@ -14,11 +14,61 @@ class Point{
 class Path{
     constructor(points){
         this.points = points;
-        // set start point as midpoint
         var midIdx = Math.floor(points.length/2);
-        this.currentPoint = points[midIdx];
-        this.previousPoint = points[midIdx-1];
-        this.nextPoint = points[midIdx+1];
+        this.targetForward = points[midIdx];
+        this.targetBehind = points[midIdx-1];
+    }
+}
+
+class PathPosition{
+    constructor(path){
+        this.path = path;
+        this.percentBetweenTargets = 0;
+        
+        this.setCurrentPoint();
+    }
+
+    setCurrentPoint(){
+        this.currentPoint = lerp(
+            this.path.targetBehind,
+            this.path.targetForward,
+            this.percentBetweenTargets);
+    }
+
+    forward(){
+        this.percentBetweenTargets += 0.02;
+        // if were on or past the next point
+        if(this.percentBetweenTargets >= 1){
+            var indx = this.path.points.indexOf(this.path.targetForward);
+            // if not at the end of the path moving forward
+            if(indx < this.path.points.length-1){
+                this.path.targetForward = this.path.points[indx+1];
+                this.path.targetBehind = this.path.points[indx];
+                this.percentBetweenTargets = 0;
+            } else {
+                // stop at end of path
+                this.percentBetweenTargets = 1;
+            }
+        }
+        this.setCurrentPoint();
+    }
+
+    backward(){
+        this.percentBetweenTargets -= 0.02;
+        // if were on or past the next point
+        if(this.percentBetweenTargets < 0){
+            var indx = this.path.points.indexOf(this.path.targetBehind);
+            // if not at the end of the path moving backwards
+            if(indx > 0){
+                this.path.targetBehind = this.path.points[indx-1];
+                this.path.targetForward = this.path.points[indx];
+                this.percentBetweenTargets = 1;
+            } else {
+                // stop at end of path
+                this.percentBetweenTargets = 0;
+            }
+        }
+        this.setCurrentPoint();
     }
 }
 
@@ -30,70 +80,25 @@ function lerp(p1,p2,percent){
 
 function fillPathDiag(){
     var points = [];
-    for(var i = 0; i <= Math.min(canvas.height, canvas.width); i+=Math.floor(canvas.height/4)){
+    var len = Math.min(canvas.height,canvas.width);
+    for(var i = 40; i <= len-40; i+=len/5){
         points.push(new Point(i, i));
     }
     return points;
 }
 var points = fillPathDiag();
 var path = new Path(points);
-
-var targetBehind = path.currentPoint;
-var targetForward = path.nextPoint;
-var percentBetween = 0.0;
-var playerPoint = lerp(targetBehind,targetForward,percentBetween);
-
-function progressForward(){
-    var indxCurr = path.points.indexOf(path.currentPoint);
-    var newIndx = indxCurr+1;
-    if(newIndx >=  path.points.length - 1){
-        return;
-    }
-    path.previousPoint = path.points[newIndx-1];
-    path.currentPoint = path.points[newIndx];
-    path.nextPoint = path.points[newIndx+1];
-}
-
-function progressBackwards(){
-    var indxCurr = path.points.indexOf(path.currentPoint);
-    var newIndx = indxCurr-1;
-    if(newIndx <= 0){
-        return;
-    }
-    path.previousPoint = path.points[newIndx-1];
-    path.currentPoint = path.points[newIndx];
-    path.nextPoint = path.points[newIndx+1];
-}
-
+var pathPos = new PathPosition(path);
 
 function move(){
     if(keyBoard.isDown(KeyCode.UP_ARROW)){
-     //   progressForward();
-        percentBetween += 0.02;
-        if(percentBetween >= 1){
-            percentBetween -= 1;
-            var indx = path.points.indexOf(targetForward);
-            if(indx < path.points.length-1){
-                targetForward = path.points[indx+1];
-                targetBehind = path.points[indx];
-            }
-        }
-
+        pathPos.forward();
     }
     if(keyBoard.isDown(KeyCode.DOWN_ARROW)){
-    //    progressBackwards();
-        percentBetween -= 0.02;
-        if(percentBetween < 0){
-            percentBetween = 0;
-            var indx = path.points.indexOf(targetBehind);
-            if(indx > 0){
-                targetBehind = path.points[indx-1];
-                targetForward = path.points[indx];
-                percentBetween = 1;
-            }
-        }
+        pathPos.backward();
     }
 }
+
 function drawCircle(p){
     gc.arc(p.x,p.y,5,0,Math.PI*2,false);
 }
@@ -112,61 +117,22 @@ function draw(){
     }
     gc.fill();
     gc.closePath();
-    /*
-    // draw current point
-    gc.beginPath();
-    gc.fillStyle = "red";
-    var curr = path.currentPoint;
-    drawCircle(curr);
-    gc.fill();
-    gc.closePath();
-
-    // draw previous and next points
-    gc.beginPath();
-    gc.fillStyle = "green";
-    var prev = path.previousPoint;
-    drawCircle(prev);
-    var nxt = path.nextPoint;
-    drawCircle(nxt);
-    gc.fill();
-    gc.closePath(); */
-
-    /*
-    // draw interpolation between current and next
-    gc.beginPath();
-    gc.fillStyle = "purple";
-    for(var i = 0; i < 1; i+=0.1){
-        var lerpedP = lerp(path.currentPoint,path.nextPoint,i);
-        drawCircleSmall(lerpedP);
-    }
-    gc.fill();
-    gc.closePath();
-
-    // draw interpolation between current and previous
-    gc.beginPath();
-    gc.fillStyle = "pink";
-    for(var i = 0; i < 1; i+=0.1){
-        var lerpedP = lerp(path.currentPoint,path.previousPoint,i);
-        drawCircleSmall(lerpedP);
-    }
-    gc.fill();
-    gc.closePath(); */
-    playerPoint = lerp(targetBehind,targetForward,percentBetween);
+    
     gc.beginPath();
     gc.fillStyle="purple";
-    drawCircle(playerPoint);
+    drawCircle(pathPos.currentPoint);
     gc.fill();
     gc.closePath();
 
     gc.beginPath();
     gc.fillStyle="red";
-    drawCircle(targetForward);
+    drawCircle(path.targetForward);
     gc.fill();
     gc.closePath();
 
     gc.beginPath();
     gc.fillStyle="black";
-    drawCircle(targetBehind);
+    drawCircle(path.targetBehind);
     gc.fill();
     gc.closePath();
 }
