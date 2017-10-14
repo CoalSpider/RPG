@@ -82,6 +82,7 @@ class Player {
         this.halfHeight = 16;
         this.x = canvas.width / 2;
         this.y = canvas.height / 2;
+        this.colCircleRadius = 8;
         // counter-clock-wise order
         this.basePoints = [
             new Vec2(-this.halfWidth, -this.halfHeight),
@@ -149,6 +150,8 @@ class Player {
         }
         gc.closePath();
         gc.stroke();
+        gc.arc(this.x,this.y,this.colCircleRadius,0,Math.PI*2,false);
+        gc.fill();
     }
 }
 

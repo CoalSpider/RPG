@@ -28,7 +28,13 @@ function draw() {
         bullets[i].draw();
     }
 
-    gc.strokeRect(canvas.width/2-20,0,20,canvas.height);
+    gc.beginPath();
+    for(var i = 0; i < pathPoints.length; i++){
+        var p = pathPoints[i];
+        gc.arc(p.x,p.y,2,0,Math.PI*2,false);
+    }
+    gc.closePath();
+    gc.fill();
 }
 
 function mainLoop() {
