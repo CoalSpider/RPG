@@ -112,29 +112,37 @@ class Player {
         return newPoints;
     }
 
-    update() {
-        var speed = 5;
+    update(path) {
+        //var speed = 5;
         if (keyBoard.isDown(KeyCode.LEFT_ARROW)) {
-            this.x -= speed;
+          //  this.x -= speed;
+          this.rotationRad -= 0.1;
         }
         if (keyBoard.isDown(KeyCode.RIGHT_ARROW)) {
-            this.x += speed;
+          //  this.x += speed;
+          this.rotationRad += 0.1;
         }
         if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
-            this.y += speed;
+        //    this.y += speed;
+        path.backward();
         }
         if (keyBoard.isDown(KeyCode.UP_ARROW)) {
-            this.y -= speed;
-        }
+         //   this.y -= speed;
+         
+         path.forward();
+        }/*
         if (keyBoard.isDown(KeyCode.A)) {
             this.rotationRad += 0.1;
         }
         if (keyBoard.isDown(KeyCode.D)) {
             this.rotationRad -= 0.1;
-        }
+        }*/
         if (keyBoard.isDown(KeyCode.W)) {
             barrel.fire();
         }
+        var pnt = path.currentPoint;
+        this.x = pnt.x;
+        this.y = pnt.y;
     }
 
     draw() {

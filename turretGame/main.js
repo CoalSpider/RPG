@@ -11,8 +11,11 @@ var barrel = new Barrel();
 
 var bullets = [];
 
+var points = fillPathCircle();
+var path = new Path(points,Interpolator.linear,true);
+
 function update() {
-    player.update();
+    player.update(path);
     for(var i = 0; i < bullets.length; i++){
         bullets[i].update();
     }
@@ -29,12 +32,12 @@ function draw() {
     }
 
     gc.beginPath();
-    for(var i = 0; i < pathPoints.length; i++){
-        var p = pathPoints[i];
+    for(var i = 0; i < path.points.length; i++){
+        var p = path.points[i];
         gc.arc(p.x,p.y,2,0,Math.PI*2,false);
     }
     gc.closePath();
-    gc.fill();
+    gc.stroke();
 }
 
 function mainLoop() {
