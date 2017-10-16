@@ -116,8 +116,7 @@ class Keyboard {
 
     onKeyDown(event) {
         var keyCode = event.keyCode;
-        var index = this.keysDown.indexOf(keyCode);
-        if (index == -1) {
+        if (this.isDown(keyCode)==false) {
             this.keysDown.push(keyCode);
         }
     }

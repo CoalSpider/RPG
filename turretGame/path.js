@@ -309,7 +309,9 @@ function fillPathCircle() {
         points.push(new Point(nX, nY));
     }
     return points;
-}/*
+}
+// TEST CODE: DO NOT REMOVE
+/*
 var points = fillPathCircle();
 var path = new Path(points, Interpolator.linear, true);
 
