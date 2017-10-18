@@ -5,15 +5,12 @@ var gc = canvas.getContext("2d");
 var keyBoard = new Keyboard();
 keyBoard.listenForEvents();
 
-//var player = new Player();
+var points = fillPathCircle();
+var path = new Path(points, Interpolator.catmullRom, true);
+var player = new TurretBase(canvas.width/2,canvas.height/2,path);
 
 var bullets = [];
 var enemies = [];
-
-var points = fillPathCircle();
-var path = new Path(points, Interpolator.catmullRom, true);
-
-var player = new TurretBase(canvas.width/2,canvas.height/2,path);
 
 var old = Date.now();
 const distSqrd = 12 * 12;
@@ -21,10 +18,13 @@ function update() {
     if (Date.now() - old > 1000) {
         var x = canvas.width/2;
         var y = canvas.height/2;
-        enemies.push(MobBuilder.runner(x,y))
+        if(Math.random() < 0.25){
+            enemies.push(MobBuilder.chaser(x,y,player));
+        } else {
+            enemies.push(MobBuilder.runner(x,y))
+        }
         old = Date.now();
     }
-    //player.update(path);
     player.update();
     player.barrel.update();
     for (var i = 0; i < bullets.length; i++) {
@@ -74,9 +74,10 @@ function draw() {
     }
 
     gc.beginPath();
+    gc.strokeStyle = "purple";
     for (var i = 0; i < path.points.length; i++) {
         var p = path.points[i];
-        gc.arc(p.x, p.y, 2, 0, Math.PI * 2, false);
+        gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
     }
     gc.closePath();
     gc.stroke();

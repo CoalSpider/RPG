@@ -118,15 +118,15 @@ class MobBuilder {
         var len = Math.sqrt(startVel.x * startVel.x + startVel.y * startVel.y);
         startVel.x /= len;
         startVel.y /= len;
-        startVel *= speed;
-        startVel *= speed;
+        startVel.x *= speed;
+        startVel.y *= speed;
     }
 
     static runner(x, y) {
         /* runs in random direction */
         var rX = Math.random() * ((Math.random() < 0.5) ? -1 : 1);
         var rY = Math.random() * ((Math.random() < 0.5) ? -1 : 1);
-        var velocity = new Point(rX,rY);
+        var velocity = new Point(rX, rY);
         MobBuilder.setVelocity(velocity, 0.25);
         var bounds = new CircleBounds(10);
         var color = rgb(255, 0, 0);
@@ -136,7 +136,22 @@ class MobBuilder {
 
     static chaser(x, y, target) {
         /* chases target */
-
+        var velocity = new Point(x - target.x, y - target.y);
+        MobBuilder.setVelocity(velocity, 1);
+        var bounds = new CircleBounds(10);
+        var color = rgb(0, 0, 255);
+        var hp = 5;
+        var chaserMob = new Mob(x,y,bounds,color,velocity,hp);
+        chaserMob.target = target;
+        // redefine update to chase the target
+        var oldUpdate = chaserMob.update;
+        chaserMob.update = function(){
+            var velocity = new Point(this.target.x - this.x, this.target.y - this.y);
+            MobBuilder.setVelocity(velocity, 1);
+            this.velocity = velocity;
+            oldUpdate.apply(this,arguments);
+        }
+        return chaserMob;
     }
 
     static darter(x, y) {
@@ -168,7 +183,7 @@ class MobBuilder {
 
 class TurretBase extends Entity {
     constructor(x, y, path) {
-        super(x,y,new RectBounds(16, 16, 0),rgb(0, 0, 0));
+        super(x, y, new RectBounds(16, 16, 0), rgb(0, 0, 0));
         this.path = path;
         this.barrel = new Barrel(this);
         this.fireTime = Date.now();
@@ -203,10 +218,10 @@ class TurretBase extends Entity {
 class Barrel extends Entity {
     constructor(turretBase) {
         super(
-            turretBase.x, 
-            turretBase.y, 
-            new RectBounds(24, 4, 0, new Point(turretBase.bounds.halfWidth,0)), 
-            rgb(0, 255, 0));
+            turretBase.x,
+            turretBase.y,
+            new RectBounds(24, 4, 0, new Point(turretBase.bounds.halfWidth, 0)),
+            rgb(0, 0, 0));
         this.turretBase = turretBase;
     }
 
@@ -216,8 +231,8 @@ class Barrel extends Entity {
         var nX = this.bounds.halfWidth * cos;
         var nY = this.bounds.halfWidth * sin;
         // shift 10 pixels out
-        nX += this.x + cos*10;
-        nY += this.y + sin*10;
+        nX += this.x + cos * 10;
+        nY += this.y + sin * 10;
         return new Point(nX, nY);
     }
 
