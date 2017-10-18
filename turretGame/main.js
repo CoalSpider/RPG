@@ -5,9 +5,7 @@ var gc = canvas.getContext("2d");
 var keyBoard = new Keyboard();
 keyBoard.listenForEvents();
 
-var player = new Player();
-
-var barrel = new Barrel();
+//var player = new Player();
 
 var bullets = [];
 var enemies = [];
@@ -15,31 +13,30 @@ var enemies = [];
 var points = fillPathCircle();
 var path = new Path(points, Interpolator.catmullRom, true);
 
+var player = new TurretBase(canvas.width/2,canvas.height/2,path);
+
 var old = Date.now();
 const distSqrd = 12 * 12;
 function update() {
     if (Date.now() - old > 1000) {
-        var x = canvas.width / 2;
-        var y = canvas.height / 2;
-        var hp = 2;
-        var speed = 0.25;
-        if (Math.random() < 0.1) {
-            // spawn chaser
-            hp = 20;
-            speed = 3;
-        } else {
-            
-        }
-        var e = new Enemy(x, y, hp, speed);
-        enemies.push(e);
+        var x = canvas.width/2;
+        var y = canvas.height/2;
+        enemies.push(MobBuilder.runner(x,y))
         old = Date.now();
     }
-    player.update(path);
+    //player.update(path);
+    player.update();
+    player.barrel.update();
     for (var i = 0; i < bullets.length; i++) {
         bullets[i].update();
     }
     for (var i = 0; i < enemies.length; i++) {
         enemies[i].update();
+        var e = enemies[i];
+        if(e.x < 0 || e.y < 0 || e.x > canvas.width || e.y > canvas.width){
+            enemies.splice(i,1);
+            i--;
+        }
     }
 
     // brute force check every bullet agianst every enemy
@@ -67,13 +64,13 @@ function draw() {
     gc.clearRect(0, 0, canvas.width, canvas.height);
     gc.strokeStyle = "black";
     gc.strokeRect(0, 0, canvas.width, canvas.height);
-    player.draw();
-    barrel.draw();
+    player.draw(gc);
+    player.barrel.draw(gc);
     for (var i = 0; i < bullets.length; i++) {
-        bullets[i].draw();
+        bullets[i].draw(gc);
     }
     for (var i = 0; i < enemies.length; i++) {
-        enemies[i].draw();
+        enemies[i].draw(gc);
     }
 
     gc.beginPath();
