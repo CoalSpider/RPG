@@ -18,10 +18,13 @@ function update() {
     if (Date.now() - old > 1000) {
         var x = canvas.width/2;
         var y = canvas.height/2;
-        if(Math.random() < 0.25){
+        var rand = Math.random();
+        if(rand < 0.25){
             enemies.push(MobBuilder.chaser(x,y,player));
+        } else if(rand < 0.35){
+            enemies.push(MobBuilder.darter(x,y,player));
         } else {
-            enemies.push(MobBuilder.runner(x,y))
+            enemies.push(MobBuilder.runner(x,y));
         }
         old = Date.now();
     }

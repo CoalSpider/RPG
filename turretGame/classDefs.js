@@ -136,26 +136,32 @@ class MobBuilder {
 
     static chaser(x, y, target) {
         /* chases target */
-        var velocity = new Point(x - target.x, y - target.y);
+        var velocity = new Point(target.x - x, target.y - y);
         MobBuilder.setVelocity(velocity, 1);
         var bounds = new CircleBounds(10);
         var color = rgb(0, 0, 255);
         var hp = 5;
-        var chaserMob = new Mob(x,y,bounds,color,velocity,hp);
+        var chaserMob = new Mob(x, y, bounds, color, velocity, hp);
         chaserMob.target = target;
         // redefine update to chase the target
         var oldUpdate = chaserMob.update;
-        chaserMob.update = function(){
+        chaserMob.update = function () {
             var velocity = new Point(this.target.x - this.x, this.target.y - this.y);
             MobBuilder.setVelocity(velocity, 1);
             this.velocity = velocity;
-            oldUpdate.apply(this,arguments);
+            oldUpdate.apply(this, arguments);
         }
         return chaserMob;
     }
 
-    static darter(x, y) {
+    static darter(x, y, target) {
         /* darts twords target in straight line */
+        var velocity = new Point(target.x - x, target.y - y);
+        MobBuilder.setVelocity(velocity, 3);
+        var bounds = new CircleBounds(10);
+        var color = rgb(255, 125, 0);
+        var hp = 10;
+        return new Mob(x, y, bounds, color, velocity, hp);
     }
 
     static brownian(x, y) {
