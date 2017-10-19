@@ -100,16 +100,40 @@ class Entity {
 }
 
 class Mob extends Entity {
-    constructor(x, y, bounds, color, velocity, hp) {
+    constructor(x, y, bounds, color, velocity, hp, hpColor) {
         super(x, y, bounds, color);
         this.velocity = velocity;
+        this.maxHP = hp;
         this.hp = hp;
+        this.hpColor = hpColor;
     }
 
     update() {
         super.update();
         this.x += this.velocity.x;
         this.y += this.velocity.y;
+    }
+
+    draw(gc) {
+        super.draw(gc);
+        /* draw hp indicator */
+        gc.beginPath();
+        gc.fillStyle = this.hpColor;
+        gc.arc(this.x, this.y, 9, 0, Math.PI * 2);
+        gc.fill();
+        gc.closePath();
+        gc.beginPath();
+        gc.fillStyle = this.color;
+        var ratio = this.hp / this.maxHP;
+        /* // pie slice style
+        gc.moveTo(this.x, this.y);
+        gc.arc(this.x, this.y, 9, 0, Math.PI * 2 * ratio, false);
+        gc.lineTo(this.x, this.y); 
+        */
+        // energy style
+        gc.arc(this.x,this.y,ratio*10,0,Math.PI*2,false);
+        gc.fill(); 
+        gc.closePath();
     }
 }
 
@@ -130,24 +154,26 @@ class MobBuilder {
         MobBuilder.setVelocity(velocity, 0.25);
         var bounds = new CircleBounds(10);
         var color = rgb(255, 0, 0);
-        var hp = 2;
-        return new Mob(x, y, bounds, color, velocity, hp);
+        var hp = 20;
+        var hpColor = rgb(255 / 2, 0, 0);
+        return new Mob(x, y, bounds, color, velocity, hp, hpColor);
     }
 
     static chaser(x, y, target) {
         /* chases target */
         var velocity = new Point(target.x - x, target.y - y);
-        MobBuilder.setVelocity(velocity, 1);
+        MobBuilder.setVelocity(velocity, 1.5);
         var bounds = new CircleBounds(10);
         var color = rgb(0, 0, 255);
         var hp = 5;
-        var chaserMob = new Mob(x, y, bounds, color, velocity, hp);
+        var hpColor = rgb(0, 0, 255 / 2);
+        var chaserMob = new Mob(x, y, bounds, color, velocity, hp, hpColor);
         chaserMob.target = target;
         // redefine update to chase the target
         var oldUpdate = chaserMob.update;
         chaserMob.update = function () {
             var velocity = new Point(this.target.x - this.x, this.target.y - this.y);
-            MobBuilder.setVelocity(velocity, 1);
+            MobBuilder.setVelocity(velocity, 1.5);
             this.velocity = velocity;
             oldUpdate.apply(this, arguments);
         }
@@ -161,7 +187,8 @@ class MobBuilder {
         var bounds = new CircleBounds(10);
         var color = rgb(255, 125, 0);
         var hp = 10;
-        return new Mob(x, y, bounds, color, velocity, hp);
+        var hpColor = rgb(255 / 2, 125 / 2, 0);
+        return new Mob(x, y, bounds, color, velocity, hp, hpColor);
     }
 
     static brownian(x, y) {
@@ -257,62 +284,19 @@ class Barrel extends Entity {
     }
 }
 
-class Bullet extends Mob {
+class Bullet extends Entity {
     constructor(x, y, velX, velY) {
-        super(x, y, new CircleBounds(4), rgb(0, 0, 0), new Point(velX, velY), 1);
+        super(x, y, new CircleBounds(4), rgb(0, 0, 0));
+        this.velocity = new Point(velX, velY);
     }
 
     update() {
         super.update();
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
         // remove if our of bounds
         if (this.x < 0 || this.y < 0 || this.x > canvas.width || this.y > canvas.height || this.hp <= 0) {
             bullets.splice(bullets.indexOf(this), 1);
         }
     }
 }
-/*
-
-class Movement {
-    constructor(mob, speed) {
-        this.mob = mob;
-        // default movement is static
-        this.vx = 0;
-        this.vy = 0;
-        this.speed = speed;
-    }
-
-    move() {
-        this.mob.x += this.vx * this.speed;
-        this.mob.y += this.vy * this.speed;
-    }
-}
-
-class RandomMovement extends Movement {
-    constructor(mob, speed) {
-        super(mob, speed);
-        this.vx = Math.random();
-        this.vx *= (Math.random() > 0.5) ? -1 : 1;
-        this.vy = Math.random();
-        this.vy *= (Math.random() > 0.5) ? -1 : 1;
-        var len = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        this.vx /= len;
-        this.vy /= len;
-    }
-}
-
-class ChaseMovement extends Movement {
-    constructor(mob, speed, target) {
-        super(mob, speed);
-        this.target = target;
-    }
-
-    move() {
-        this.vx = this.target.x - this.mob.x;
-        this.vy = this.target.y - this.mob.y;
-        var len = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        this.vx /= len;
-        this.vy /= len;
-
-        super.move();
-    }
-} */
