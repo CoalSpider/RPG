@@ -8,9 +8,8 @@ keyBoard.listenForEvents();
 var points = fillPathCircle();
 var path = new Path(points, Interpolator.catmullRom, true);
 var player = new TurretBase(path, new Vec2(canvas.width / 2, canvas.height / 2));
-var playerHealthMax = 10;
-var playerHealth = 10;
-
+player.maxHP = 10;
+player.hp = 1;
 var bullets = [];
 var enemies = [];
 
@@ -81,7 +80,7 @@ function collisionEnemyPlayer() {
         var e = enemies[i];
         var collide = circleBoxCollision(new Vec2(e.position.x, e.position.y), 10, new Vec2(player.position.x, player.position.y), player.bounds);
         if (collide) {
-            playerHealth -= 1;
+            player.hp -= 1;
             enemies.splice(enemies.indexOf(e), 1);
             i -= 1;
             // TODO: iframe
@@ -99,7 +98,7 @@ function update() {
 }
 
 function drawUI() {
-    var ratio = Math.max(0, playerHealth / playerHealthMax);
+    var ratio = Math.max(0, player.hp / player.maxHP);
     gc.fillStyle = "red";
     gc.fillRect(25, 25, canvas.width / 4, 50);
     gc.fillStyle = "green";
@@ -111,11 +110,11 @@ function drawUI() {
     gc.lineWidth = 1;
 }
 
-function drawCircleBounds(position, bounds){
+function drawCircleBounds(position, bounds) {
     gc.arc(position.x, position.y, bounds.radius, 0, Math.PI * 2);
 }
 
-function drawRectBounds(position, bounds){
+function drawRectBounds(position, bounds) {
     var pnts = bounds.getPoints(position);
     gc.moveTo(pnts[0].x, pnts[0].y);
     for (var i = 1, j = pnts.length; i < j; i++) {
@@ -124,10 +123,10 @@ function drawRectBounds(position, bounds){
     gc.lineTo(pnts[0].x, pnts[0].y);
 }
 
-function drawAxisRectBounds(position, bounds){
+function drawAxisRectBounds(position, bounds) {
     var hw = bounds.halfWidth;
     var hh = bounds.halfHeight;
-    gc.strokeRect(position.x -hw, position.y - hh, hw * 2, hh * 2);
+    gc.strokeRect(position.x - hw, position.y - hh, hw * 2, hh * 2);
 }
 
 function drawBounds(position, bounds) {
@@ -135,7 +134,7 @@ function drawBounds(position, bounds) {
     if (bounds instanceof CircleBounds) {
         drawCircleBounds(position, bounds);
     } else if (bounds instanceof RectBounds) {
-        drawRectBounds(position,bounds);
+        drawRectBounds(position, bounds);
     } else if (bounds instanceof AxisRectBounds) {
         drawAxisRectBounds(position, bounds);
     } else {
@@ -170,13 +169,13 @@ function drawHPBar(entity, color, hpColor) {
     gc.closePath();
 }
 
-function clearCanvas(){
+function clearCanvas() {
     gc.clearRect(0, 0, canvas.width, canvas.height);
     gc.strokeStyle = "black";
     gc.strokeRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawEnemies(){
+function drawEnemies() {
     for (var i = 0, j = enemies.length; i < j; i++) {
         var e = enemies[i];
         var pos = e.position;
@@ -203,7 +202,7 @@ function drawEnemies(){
     }
 }
 
-function drawBullets(){
+function drawBullets() {
     gc.strokeStyle = "black";
     for (var i = 0, j = bullets.length; i < j; i++) {
         var b = bullets[i];
@@ -213,7 +212,7 @@ function drawBullets(){
     }
 }
 
-function drawPath(){
+function drawPath() {
     gc.beginPath();
     gc.strokeStyle = "purple";
     for (var i = 0; i < path.points.length; i++) {
@@ -224,7 +223,7 @@ function drawPath(){
     gc.stroke();
 }
 
-function drawPlayer(){
+function drawPlayer() {
     gc.strokeStyle = "black";
     drawBounds(player.position, player.bounds);
     drawBounds(player.barrel.position, player.barrel.bounds);
@@ -239,21 +238,141 @@ function draw() {
     drawUI();
 }
 
+function resetGame() {
+    player.hp = player.maxHP;
+    enemies.splice(0, enemies.length);
+    bullets.splice(0, bullets.length);
+}
+
 function mainLoop() {
-    if (playerHealth <= 0) {
+    if (player.hp <= 0) {
         var cont = confirm("Continue?");
         if (cont) {
-            playerHealth = 10;
-            enemies.splice(0, enemies.length);
-            bullets.splice(0, bullets.length);
+            resetGame();
         } else {
-            document.location.reload();
+            resetGame();
+            // calls 10 times a second
+            showStartWindow();
         }
     } else {
         update();
         draw();
     }
 }
+var interval;
+function launchGame() {
+    canvas.removeEventListener("click", clickListener, false);
+    canvas.removeEventListener("mousemove", mousemoveListener, false);
+    clearInterval(interval);
+    // calls 60 times a second
+    interval = setInterval(mainLoop, 1000 / 60);
+}
+class EntryScreenButton {
+    constructor(x, y, width, height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.opacity = 0.9;
+    }
+}
+var launchButton = new EntryScreenButton(
+    canvas.width / 2 - 100, 150, 200, 50);
+var creditsButton = new EntryScreenButton(
+    canvas.width / 2 - 100, 250, 200, 50);
+var settingsButton = new EntryScreenButton(
+    canvas.width / 2 - 100, 350, 200, 50);
 
-// calls 60 times a second
-setInterval(mainLoop, 1000 / 60);
+var img = new Image(canvas.width,canvas.height);
+img.src = "images/entry_screen_background.jpg";
+var imgButton = new Image(launchButton.width,launchButton.height);
+imgButton.src = "images/entry_screen_button2.png";
+
+function drawButtons() {
+    gc.globalAlpha = launchButton.opacity;
+    gc.drawImage(imgButton,launchButton.x,launchButton.y-10,launchButton.width+20,launchButton.height+20);
+    gc.globalAlpha = launchButton.opacity;
+    gc.font = "30px Arial";
+    gc.fillStyle = rgb(252,214,47);
+    gc.fillText("Launch",launchButton.x+launchButton.width/4,launchButton.y+launchButton.height/2 + 10);
+    
+    gc.globalAlpha = creditsButton.opacity;
+    gc.drawImage(imgButton,creditsButton.x,creditsButton.y-10,creditsButton.width+20,creditsButton.height+20);
+    gc.globalAlpha = creditsButton.opacity;
+    gc.font = "30px Arial";
+    gc.fillStyle = rgb(252,214,47);
+    gc.fillText("Credits",creditsButton.x+creditsButton.width/4,creditsButton.y+creditsButton.height/2 + 10);
+    
+    gc.globalAlpha = settingsButton.opacity;
+    gc.drawImage(imgButton,settingsButton.x,settingsButton.y-10,settingsButton.width+20,settingsButton.height+20);
+    gc.globalAlpha = settingsButton.opacity;
+    gc.font = "30px Arial";
+    gc.fillStyle = rgb(252,214,47);
+    gc.fillText("Settings",settingsButton.x+settingsButton.width/4,settingsButton.y+settingsButton.height/2 + 10);
+    gc.globalAlpha = 1;
+}
+
+function drawEntryScreen() {
+    clearCanvas();
+    gc.fillStyle = "black"; 
+    gc.fillRect(0,0,canvas.width,canvas.height);
+    gc.drawImage(img,0,0,canvas.width,canvas.height);
+    gc.font = "100px Arial";
+    gc.fillText("BIG GUN", canvas.width/2 - 200, 100);
+    drawButtons();
+}
+
+
+function getMousePos(canvas, event) {
+    var rect = canvas.getBoundingClientRect();
+    return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+    };
+}
+
+function isInside(pos, rect) {
+    return pos.x > rect.x && pos.x < rect.x + rect.width && pos.y < rect.y + rect.height && pos.y > rect.y;
+}
+
+function clickListener(evt) {
+    var mousePos = getMousePos(canvas, evt);
+    if (isInside(mousePos, launchButton)) {
+        launchGame();
+    } else
+    if (isInside(mousePos, creditsButton)) {
+      //  launchCredits();
+    } else
+    if (isInside(mousePos, settingsButton)) {
+      //  launchSettings();
+    }
+}
+
+function mousemoveListener(evt){
+    var mousePos = getMousePos(canvas, evt);
+    if (isInside(mousePos, launchButton)) {
+        launchButton.opacity = 1.0;
+    } else {
+        launchButton.opacity = 0.9;
+    }
+     if (isInside(mousePos, creditsButton)) {
+        creditsButton.opacity = 1.0;
+    } else {
+        creditsButton.opacity = 0.9;
+    }
+    if (isInside(mousePos, settingsButton)) {
+        settingsButton.opacity = 1.0;
+    } else {
+        settingsButton.opacity = 0.9;
+    }
+}
+
+function showStartWindow() {
+    canvas.addEventListener("click", clickListener, false);
+    canvas.addEventListener("mousemove", mousemoveListener, false);
+    clearInterval(interval);
+    interval = setInterval(drawEntryScreen,1000/10);
+}
+
+showStartWindow();
+
