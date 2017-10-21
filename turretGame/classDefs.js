@@ -65,7 +65,7 @@ class CircleBounds {
 var ENTITY_ID = {
     PLAYER: { value: 0, name: "Player" },
     RUNNER: { value: 1, name: "Runner" },
-    CHASER: { value : 2, name: "Chaser"},
+    CHASER: { value: 2, name: "Chaser" },
     DARTER: { value: 3, name: "Darter" },
     BROWNIAN: { value: 4, name: "Brownian" },
     SPINNER: { value: 5, name: "Spinner" },
@@ -109,12 +109,12 @@ class Entity {
 }
 
 class EntityBuilder {
-    static build(ENTITY_ID, position, target) {
-        switch (ENTITY_ID) {
+    static build(id, position, target) {
+        switch (id) {
             case 0: return EntityBuilder.buildPlayer(position);
             case 1: return EntityBuilder.buildRunner(position);
-            case 2: return EntityBuilder.buildChaser(position,target);
-            case 3: return EntityBuilder.buildDarter(position,target);
+            case 2: return EntityBuilder.buildChaser(position, target);
+            case 3: return EntityBuilder.buildDarter(position, target);
             case 4: return EntityBuilder.buildBrownian(position);
             case 5: return EntityBuilder.buildSpinner(position);
             case 6: return EntityBuilder.buildFatty(position);
@@ -141,25 +141,25 @@ class EntityBuilder {
         return new Entity(data);
     }
 
-    static buildChaser(position,target){
+    static buildChaser(position, target) {
         // chases target
         var data = {
             id: ENTITY_ID.CHASER.value,
             position: position,
             bounds: new CircleBounds(10),
             velocity: new Vec2(target.position.x - position.x, target.position.y - position.y).normalizeLocal().multLocal(1.5),
-            maxHP:5,
+            maxHP: 5,
             hp: 5,
         }
         var chaser = new Entity(data);
         chaser.target = target;
         // redefine update to chase the target
         var oldUpdate = chaser.update;
-        chaser.update = function(){
+        chaser.update = function () {
             var dx = this.target.position.x - this.position.x;
             var dy = this.target.position.y - this.position.y;
             this.velocity = new Vec2(dx, dy).normalizeLocal().multLocal(1.5),
-            oldUpdate.apply(this,arguments);
+                oldUpdate.apply(this, arguments);
         }
         return chaser;
     }
@@ -170,7 +170,7 @@ class EntityBuilder {
             id: ENTITY_ID.DARTER.value,
             position: position,
             bounds: new CircleBounds(10),
-            velocity:  new Vec2(target.position.x - position.x, target.position.y - position.y).normalizeLocal().multLocal(3),
+            velocity: new Vec2(target.position.x - position.x, target.position.y - position.y).normalizeLocal().multLocal(3),
             maxHP: 10,
             hp: 10,
         }
@@ -181,7 +181,7 @@ class EntityBuilder {
     static buildBrownian(position) {
         // random movement
     }
-    static buildSpinner(position,target) {
+    static buildSpinner(position, target) {
         // spins around target
     }
     static buildFatty(position) {
@@ -195,14 +195,75 @@ class EntityBuilder {
         // stationary, heals nearby
     }
 }
+var RatioTable = {
+    runner: 0,
+    chaser: 0,
+    darter: 0,
+    brownian: 0,
+    spinner: 0,
+    fatty: 0,
+    mage: 0,
+    priest: 0,
+}
+var ids = [1, 2, 3, 4, 5, 6, 7, 8];
 
-class TurretBase extends Entity{
-    constructor(path=Path,position){
+class Spawner {
+    constructor(position = Vec2, spawnMax = 1, delay = 1000, ratioTable = RatioTable) {
+        this.position = position;
+        this.spawnMax = spawnMax;
+        this.delay = delay;
+        this.ratioTable = ratioTable;
+        this.spawnCount = 0;
+        this.weights = [
+            this.ratioTable.runner,
+            this.ratioTable.chaser,
+            this.ratioTable.darter,
+            this.ratioTable.brownian,
+            this.ratioTable.spinner,
+            this.ratioTable.fatty,
+            this.ratioTable.mage,
+            this.ratioTable.priest
+        ]
+        this.weightedSum = 0;
+        for (var i = 0, j = this.weights.length; i < j; i++) {
+            var num = this.weights[i];
+            this.weightedSum += (num == undefined) ? 0 : this.weights[i];
+        }
+        this.oldTime = Date.now();
+    }
+
+    randomize(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    getRandomEnemy() {
+        var roll = this.randomize(0, this.weightedSum);
+        var sum = 0;
+        for (var i = 0, j = this.weights.length; i < j; i++) {
+            sum += this.weights[i];
+            if (roll <= sum) {
+                return EntityBuilder.build(ids[i], this.position.copy(), player);
+            }
+        }
+        throw new Error("not mob found");
+    }
+
+    spawnEnemy() {
+        if (this.spawnCount < this.spawnMax && Date.now() - this.oldTime > this.delay) {
+            this.oldTime = Date.now();
+            enemies.push(this.getRandomEnemy());
+            this.spawnCount += 1;
+        }
+    }
+}
+
+class TurretBase extends Entity {
+    constructor(path = Path, position) {
         super({
-            id:ENTITY_ID.PLAYER.value,
+            id: ENTITY_ID.PLAYER.value,
             position: position,
             bounds: new RectBounds(16, 16, 0),
-            maxHP:100,
+            maxHP: 100,
             hp: 100,
         });
         this.path = path;
@@ -235,11 +296,11 @@ class TurretBase extends Entity{
     }
 }
 
-class Barrel extends Entity{
-    constructor(turretBase=TurretBase){
+class Barrel extends Entity {
+    constructor(turretBase = TurretBase) {
         super({
             position: turretBase.position,
-            bounds: new RectBounds(24, 4, 0, 
+            bounds: new RectBounds(24, 4, 0,
                 new Vec2(turretBase.bounds.halfWidth, 0)),
         });
         this.turretBase = turretBase;
@@ -270,8 +331,8 @@ class Barrel extends Entity{
     }
 }
 
-class Bullet extends Entity{
-    constructor(position,velocity){
+class Bullet extends Entity {
+    constructor(position, velocity) {
         super({
             position: position,
             velocity: velocity,

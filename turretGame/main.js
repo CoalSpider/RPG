@@ -13,6 +13,7 @@ player.hp = 1;
 var bullets = [];
 var enemies = [];
 
+/*
 var old = Date.now();
 function spawnEnemy() {
     if (Date.now() - old > 1000) {
@@ -27,7 +28,12 @@ function spawnEnemy() {
         }
         old = Date.now();
     }
-}
+} */
+var spawner = new Spawner(
+    new Vec2(canvas.width / 2, canvas.height / 2),
+    50,
+    1000,
+    {runner:0.65,chaser:0.25,darter:0.10});
 
 function updatePlayer() {
     player.update();
@@ -89,7 +95,7 @@ function collisionEnemyPlayer() {
 }
 
 function update() {
-    spawnEnemy();
+    spawner.spawnEnemy();
     updatePlayer();
     updateBullets();
     updateEnemies();

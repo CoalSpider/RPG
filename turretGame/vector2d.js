@@ -88,6 +88,10 @@ class Vec2{
         return vec2.mult(scalarProj(vec2));
     }
 
+    copy(){
+        return new Vec2(this.x,this.y);
+    }
+
     /* STATIC METHODS */
 
     /* returns a new vector containing the result */
