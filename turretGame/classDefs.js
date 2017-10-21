@@ -4,10 +4,10 @@ class AxisRectBounds {
         this.halfHeight = halfHeight;
         /* centered on origin, counter-clock-wise, ordering */
         this.basePoints = [
-            new Point(-this.halfWidth, -this.halfHeight),
-            new Point(-this.halfWidth, +this.halfHeight),
-            new Point(+this.halfWidth, +this.halfHeight),
-            new Point(+this.halfWidth, -this.halfHeight),
+            new Vec2(-this.halfWidth, -this.halfHeight),
+            new Vec2(-this.halfWidth, +this.halfHeight),
+            new Vec2(+this.halfWidth, +this.halfHeight),
+            new Vec2(+this.halfWidth, -this.halfHeight),
         ];
     }
 
@@ -17,13 +17,12 @@ class AxisRectBounds {
         for (var i = 0; i < len; i++) {
             var p = basePoints[i];
             newPoints.push(
-                new Point(p.x + translation.x, p.y + translation.y)
+                new Vec2(p.x + translation.x, p.y + translation.y)
             );
         }
         return newPoints;
     }
 }
-
 class RectBounds extends AxisRectBounds {
     constructor(halfWidth, halfHeight, angleRad, shift) {
         super(halfWidth, halfHeight);
@@ -51,7 +50,7 @@ class RectBounds extends AxisRectBounds {
             nX += translation.x;
             nY += translation.y;
             /* add to new points arr */
-            newPoints.push(new Point(nX, nY));
+            newPoints.push(new Vec2(nX, nY));
         }
         return newPoints;
     }
@@ -62,168 +61,156 @@ class CircleBounds {
         this.radius = radius;
     }
 }
+/* ENTITY ID Enum */
+var ENTITY_ID = {
+    PLAYER: { value: 0, name: "Player" },
+    RUNNER: { value: 1, name: "Runner" },
+    CHASER: { value : 2, name: "Chaser"},
+    DARTER: { value: 3, name: "Darter" },
+    BROWNIAN: { value: 4, name: "Brownian" },
+    SPINNER: { value: 5, name: "Spinner" },
+    FATTY: { value: 6, name: "Fatty" },
+    MAGE: { value: 7, name: "Mage" },
+    PRIEST: { value: 8, name: "Priest" },
+}
+Object.freeze(ENTITY_ID);
+
+var EntityData = {
+    id: undefined,
+    position: undefined,
+    bounds: undefined,
+    velocity: undefined,
+    maxHP: undefined,
+    hp: undefined,
+}
 
 class Entity {
-    constructor(x, y, bounds, color) {
-        this.x = x;
-        this.y = y;
-        this.bounds = bounds;
-        this.color = color;
+    constructor(data = EntityData) {
+        this.id = data.id;
+        this.position = data.position;
+        this.bounds = data.bounds;
+        this.velocity = data.velocity;
+        this.maxHP = data.maxHP;
+        this.hp = data.hp;
     }
 
     update() {
-        /* empty */
+        this.move();
     }
 
-    draw(gc) {
-        gc.beginPath();
-        gc.strokeStyle = this.color;
-        if (this.bounds instanceof CircleBounds) {
-            gc.arc(this.x, this.y, this.bounds.radius, 0, Math.PI * 2);
-        } else if (this.bounds instanceof RectBounds) {
-            var pnts = this.bounds.getPoints(new Point(this.x, this.y));
-            var len = pnts.length;
-            gc.moveTo(pnts[0].x, pnts[0].y);
-            for (var i = 1; i < len; i++) {
-                gc.lineTo(pnts[i].x, pnts[i].y);
-            }
-            gc.lineTo(pnts[0].x, pnts[0].y);
-        } else if (this.bounds instanceof AxisRectBounds) {
-            /* strokeRect draws from top left we want to center the drawing */
-            gc.strokeRect(this.x - this.halfWidth, this.y - this.halfHeight, this.halfWidth * 2, this.halfHeight * 2);
+    move() {
+        if (this.velocity == undefined) {
+            // do nothing
         } else {
-            throw new Error("unknown bounds");
+            // add velocity to position
+            this.position.addLocal(this.velocity);
         }
-        gc.stroke();
-        gc.closePath();
     }
 }
 
-class Mob extends Entity {
-    constructor(x, y, bounds, color, velocity, hp, hpColor) {
-        super(x, y, bounds, color);
-        this.velocity = velocity;
-        this.maxHP = hp;
-        this.hp = hp;
-        this.hpColor = hpColor;
+class EntityBuilder {
+    static build(ENTITY_ID, position, target) {
+        switch (ENTITY_ID) {
+            case 0: return EntityBuilder.buildPlayer(position);
+            case 1: return EntityBuilder.buildRunner(position);
+            case 2: return EntityBuilder.buildChaser(position,target);
+            case 3: return EntityBuilder.buildDarter(position,target);
+            case 4: return EntityBuilder.buildBrownian(position);
+            case 5: return EntityBuilder.buildSpinner(position);
+            case 6: return EntityBuilder.buildFatty(position);
+            case 7: return EntityBuilder.buildMage(position);
+            case 8: return EntityBuilder.buildPriest(position);
+            default: throw new Error("unknown id");
+        }
     }
+    static buildPlayer(position) {
 
-    update() {
-        super.update();
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
     }
-
-    draw(gc) {
-        super.draw(gc);
-        /* draw hp indicator */
-        gc.beginPath();
-        gc.fillStyle = this.hpColor;
-        gc.arc(this.x, this.y, 9, 0, Math.PI * 2);
-        gc.fill();
-        gc.closePath();
-        gc.beginPath();
-        gc.fillStyle = this.color;
-        var ratio = this.hp / this.maxHP;
-        /* // pie slice style
-        gc.moveTo(this.x, this.y);
-        gc.arc(this.x, this.y, 9, 0, Math.PI * 2 * ratio, false);
-        gc.lineTo(this.x, this.y); 
-        */
-        // energy style
-        gc.arc(this.x,this.y,ratio*10,0,Math.PI*2,false);
-        gc.fill(); 
-        gc.closePath();
-    }
-}
-
-class MobBuilder {
-    static setVelocity(startVel, speed) {
-        var len = Math.sqrt(startVel.x * startVel.x + startVel.y * startVel.y);
-        startVel.x /= len;
-        startVel.y /= len;
-        startVel.x *= speed;
-        startVel.y *= speed;
-    }
-
-    static runner(x, y) {
-        /* runs in random direction */
+    static buildRunner(position) {
+        // runs in random direction
         var rX = Math.random() * ((Math.random() < 0.5) ? -1 : 1);
         var rY = Math.random() * ((Math.random() < 0.5) ? -1 : 1);
-        var velocity = new Point(rX, rY);
-        MobBuilder.setVelocity(velocity, 0.25);
-        var bounds = new CircleBounds(10);
-        var color = rgb(255, 0, 0);
-        var hp = 20;
-        var hpColor = rgb(255 / 2, 0, 0);
-        return new Mob(x, y, bounds, color, velocity, hp, hpColor);
-    }
-
-    static chaser(x, y, target) {
-        /* chases target */
-        var velocity = new Point(target.x - x, target.y - y);
-        MobBuilder.setVelocity(velocity, 1.5);
-        var bounds = new CircleBounds(10);
-        var color = rgb(0, 0, 255);
-        var hp = 5;
-        var hpColor = rgb(0, 0, 255 / 2);
-        var chaserMob = new Mob(x, y, bounds, color, velocity, hp, hpColor);
-        chaserMob.target = target;
-        // redefine update to chase the target
-        var oldUpdate = chaserMob.update;
-        chaserMob.update = function () {
-            var velocity = new Point(this.target.x - this.x, this.target.y - this.y);
-            MobBuilder.setVelocity(velocity, 1.5);
-            this.velocity = velocity;
-            oldUpdate.apply(this, arguments);
+        var data = {
+            id: ENTITY_ID.RUNNER.value,
+            position: position,
+            bounds: new CircleBounds(10),
+            velocity: new Vec2(rX, rY).normalizeLocal().multLocal(0.25),
+            maxHP: 1,
+            hp: 1,
         }
-        return chaserMob;
+        return new Entity(data);
     }
 
-    static darter(x, y, target) {
-        /* darts twords target in straight line */
-        var velocity = new Point(target.x - x, target.y - y);
-        MobBuilder.setVelocity(velocity, 3);
-        var bounds = new CircleBounds(10);
-        var color = rgb(255, 125, 0);
-        var hp = 10;
-        var hpColor = rgb(255 / 2, 125 / 2, 0);
-        return new Mob(x, y, bounds, color, velocity, hp, hpColor);
+    static buildChaser(position,target){
+        // chases target
+        var data = {
+            id: ENTITY_ID.CHASER.value,
+            position: position,
+            bounds: new CircleBounds(10),
+            velocity: new Vec2(target.position.x - position.x, target.position.y - position.y).normalizeLocal().multLocal(1.5),
+            maxHP:5,
+            hp: 5,
+        }
+        var chaser = new Entity(data);
+        chaser.target = target;
+        // redefine update to chase the target
+        var oldUpdate = chaser.update;
+        chaser.update = function(){
+            var dx = this.target.position.x - this.position.x;
+            var dy = this.target.position.y - this.position.y;
+            this.velocity = new Vec2(dx, dy).normalizeLocal().multLocal(1.5),
+            oldUpdate.apply(this,arguments);
+        }
+        return chaser;
     }
-
-    static brownian(x, y) {
-        /* random walk */
+    static buildDarter(position, target) {
+        // darts at target
+        // runs in random direction
+        var data = {
+            id: ENTITY_ID.DARTER.value,
+            position: position,
+            bounds: new CircleBounds(10),
+            velocity:  new Vec2(target.position.x - position.x, target.position.y - position.y).normalizeLocal().multLocal(3),
+            maxHP: 10,
+            hp: 10,
+        }
+        var darter = new Entity(data);
+        darter.target = target;
+        return darter;
     }
-
-    static mage(x, y) {
-        /* teleports around does not move */
-        /* can change enemy type to any other type except a mage */
+    static buildBrownian(position) {
+        // random movement
     }
-
-    static priest(x, y) {
-        /* static */
-        /* heals others */
+    static buildSpinner(position,target) {
+        // spins around target
     }
-
-    static fatty(x, y) {
-        /* big mob that sits on track */
+    static buildFatty(position) {
+        // sits on track
     }
-
-    static spinner(x, y) {
-        /* spins in circle around target */
+    static buildMage(position) {
+        // stationary, casts spells, can teleport behind player
+        // can turn any entity with health into any other entity with health
+    }
+    static buildPriest(position) {
+        // stationary, heals nearby
     }
 }
 
-class TurretBase extends Entity {
-    constructor(x, y, path) {
-        super(x, y, new RectBounds(16, 16, 0), rgb(0, 0, 0));
+class TurretBase extends Entity{
+    constructor(path=Path,position){
+        super({
+            id:ENTITY_ID.PLAYER.value,
+            position: position,
+            bounds: new RectBounds(16, 16, 0),
+            maxHP:100,
+            hp: 100,
+        });
         this.path = path;
         this.barrel = new Barrel(this);
         this.fireTime = Date.now();
     }
 
     update() {
-        super.update();
         if (keyBoard.isDown(KeyCode.LEFT_ARROW)) {
             this.bounds.angleRad -= 0.025;
         }
@@ -242,19 +229,19 @@ class TurretBase extends Entity {
                 this.fireTime = Date.now();
             }
         }
-        var pnt = this.path.currentPoint;
-        this.x = pnt.x;
-        this.y = pnt.y;
+        this.position = this.path.currentPoint;
+
+        this.barrel.update();
     }
 }
 
-class Barrel extends Entity {
-    constructor(turretBase) {
-        super(
-            turretBase.x,
-            turretBase.y,
-            new RectBounds(24, 4, 0, new Point(turretBase.bounds.halfWidth, 0)),
-            rgb(0, 0, 0));
+class Barrel extends Entity{
+    constructor(turretBase=TurretBase){
+        super({
+            position: turretBase.position,
+            bounds: new RectBounds(24, 4, 0, 
+                new Vec2(turretBase.bounds.halfWidth, 0)),
+        });
         this.turretBase = turretBase;
     }
 
@@ -264,39 +251,31 @@ class Barrel extends Entity {
         var nX = this.bounds.halfWidth * cos;
         var nY = this.bounds.halfWidth * sin;
         // shift 10 pixels out
-        nX += this.x + cos * 10;
-        nY += this.y + sin * 10;
-        return new Point(nX, nY);
+        nX += this.position.x + cos * 10;
+        nY += this.position.y + sin * 10;
+        return new Vec2(nX, nY);
     }
 
     fire() {
-        var barrelEnd = this.getBarrelEnd();
         var dx = Math.cos(this.bounds.angleRad) * 10;
         var dy = Math.sin(this.bounds.angleRad) * 10;
-        bullets.push(new Bullet(barrelEnd.x, barrelEnd.y, dx, dy));
+        var barrelEnd = this.getBarrelEnd();
+        bullets.push(new Bullet(barrelEnd, new Vec2(dx, dy)));
     }
 
     update() {
         super.update();
-        this.x = this.turretBase.x;
-        this.y = this.turretBase.y;
+        this.position = this.turretBase.position;
         this.bounds.angleRad = this.turretBase.bounds.angleRad;
     }
 }
 
-class Bullet extends Entity {
-    constructor(x, y, velX, velY) {
-        super(x, y, new CircleBounds(4), rgb(0, 0, 0));
-        this.velocity = new Point(velX, velY);
-    }
-
-    update() {
-        super.update();
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
-        // remove if our of bounds
-        if (this.x < 0 || this.y < 0 || this.x > canvas.width || this.y > canvas.height || this.hp <= 0) {
-            bullets.splice(bullets.indexOf(this), 1);
-        }
+class Bullet extends Entity{
+    constructor(position,velocity){
+        super({
+            position: position,
+            velocity: velocity,
+            bounds: new CircleBounds(4),
+        });
     }
 }

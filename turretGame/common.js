@@ -116,7 +116,7 @@ class Keyboard {
 
     onKeyDown(event) {
         var keyCode = event.keyCode;
-        if (this.isDown(keyCode)==false) {
+        if (this.isDown(keyCode) == false) {
             this.keysDown.push(keyCode);
         }
     }
@@ -153,7 +153,7 @@ class Interpolator {
     static linear(p1, p2, percent) {
         var nX = p1.x + percent * (p2.x - p1.x);
         var nY = p1.y + percent * (p2.y - p1.y);
-        return new Point(nX, nY);
+        return new Vec2(nX, nY);
     }
 
     static normalizedLinear(p1, p2, percent) {
@@ -180,7 +180,7 @@ class Interpolator {
         // result
         var nX = p1.x * Math.cos(theta) + rX * Math.sin(theta);
         var nY = p1.y * Math.cos(theta) + rY * Math.sin(theta);
-        return new Point(nX, nY);
+        return new Vec2(nX, nY);
     }
 
     /** same as linear except the percent is calculated as:
@@ -212,7 +212,7 @@ class Interpolator {
         var a3y = p1.y;
         var nX = a0x * percent * mu2 + a1x * mu2 + a2x * percent + a3x;
         var nY = a0y * percent * mu2 + a1y * mu2 + a2y * percent + a3y;
-        return new Point(nX, nY);
+        return new Vec2(nX, nY);
     }
 
     /**
@@ -236,7 +236,7 @@ class Interpolator {
         var a3y = p1.y;
         var nX = a0x * percent * mu2 + a1x * mu2 + a2x * percent + a3x;
         var nY = a0y * percent * mu2 + a1y * mu2 + a2y * percent + a3y;
-        return new Point(nX, nY);
+        return new Vec2(nX, nY);
     }
 
     /** 
@@ -282,15 +282,70 @@ class Interpolator {
 
         var nX = a0 * p1.x + a1 * m0x + a2 * m1x + a3 * p2.x;
         var nY = a0 * p1.y + a1 * m0y + a2 * m1y + a3 * p2.y;
-        return new Point(nX, nY);
+        return new Vec2(nX, nY);
     }
 
 }
 
-function rgb(r,g,b){
-    return ("rgb("+r+","+g+","+b+")");
+function rgb(r, g, b) {
+    return ("rgb(" + r + "," + g + "," + b + ")");
 }
 
-function rgba(r,g,b,a){
-    return ("rgb("+r+","+g+","+b+","+a+")");
+function rgba(r, g, b, a) {
+    return ("rgb(" + r + "," + g + "," + b + "," + a + ")");
+}
+
+/* clamps the given value between min and max */
+function clamp(min,max,val){
+    return Math.max(min,Math.min(val,max));
+}
+
+/* args == two xy pairs */
+function distSqrd(p0, p1) {
+    var dx = p1.x - p0.x;
+    var dy = p1.y - p0.y;
+    return dx * dx + dy * dy;
+}
+
+/* args == two xy pairs */
+function dist(p0, p1) {
+    return Math.sqrt(distSqrd(p0, p1));
+}
+
+function distSqrdPointLine(p,a,b){
+    return distSqrd(p,Vec2.segmentVecProj(p,a,b));
+}
+
+function distPointLine(p,a,b){
+    return Math.sqrt(distSqrdPointLine(p,a,b));
+}
+
+/* args == two circles defined by a point and a radius*/
+function circleCircleCollision(p0, r0, p1, r1) {
+    var ds = distSqrd(p0, p1);
+    var minLen = r0 * r0 + r1 * r1;
+    return ds < minLen;
+}
+
+/* args == circle defined by a point+radius and a rectangle defined by a rectBounds and point*/
+function circleBoxCollision(p0, r0, p1, rectBounds) {
+    var pnts = rectBounds.getPoints(p1);
+    var r1 = pnts[0];
+    var r2 = pnts[1];
+    var r3 = pnts[2];
+    var r4 = pnts[3];
+    var minDistSqrd = r0 * r0;
+    if (distSqrdPointLine(p0, r1, r2) < minDistSqrd) {
+        return true;
+    }
+    if (distSqrdPointLine(p0, r2, r3) < minDistSqrd) {
+        return true;
+    }
+    if (distSqrdPointLine(p0, r3, r4) < minDistSqrd) {
+        return true;
+    }
+    if (distSqrdPointLine(p0, r4, r1) < minDistSqrd) {
+        return true;
+    }
+    return false;
 }

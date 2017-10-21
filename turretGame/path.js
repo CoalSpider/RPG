@@ -140,7 +140,7 @@ function fillPathDiag() {
     var points = [];
     var len = Math.min(canvas.height, canvas.width);
     for (var i = 40; i <= len - 40; i += len / 5) {
-        points.push(new Point(i, i));
+        points.push(new Vec2(i, i));
     }
     return points;
 }
@@ -156,7 +156,7 @@ function fillPathCircle() {
         var radius = 200;
         var nX = (canvas.width / 2) + (radius * Math.cos(rad));
         var nY = (canvas.height / 2) + (radius * Math.sin(rad));
-        points.push(new Point(nX, nY));
+        points.push(new Vec2(nX, nY));
     }
     return points;
 }
