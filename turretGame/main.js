@@ -1,4 +1,90 @@
+class Level {
+    constructor(path = Path, spawnPoints) {
+        this.path = path;
+        this.spawnPoints = spawnPoints;
+    }
+}
+
 var canvas = document.getElementById("canvas");
+
+var Level1_Division = new Level(
+    new Path(
+        [
+            new Vec2(canvas.width / 2, 25),
+            new Vec2(canvas.width / 2, canvas.height - 25)
+        ],
+        Interpolator.linear,
+        false,
+    ),
+    // list of spawners
+    [
+        new Spawner(
+            new Vec2(canvas.width / 4, canvas.height / 2),
+            10,
+            2000,
+            { runner: 1 }
+        ),
+        new Spawner(
+            new Vec2(canvas.width * (3 / 4), canvas.height / 2),
+            10,
+            2000,
+            { runner: 1 }
+        )
+    ]
+);
+
+var Level2_Horizon = new Level(
+    new Path(
+        [
+            new Vec2(25, canvas.height / 2),
+            new Vec2(canvas.width - 25, canvas.height / 2)
+        ],
+        Interpolator.linear,
+        false
+    ),
+    // list of spawners
+    [
+        new Spawner(
+            new Vec2(canvas.width / 2, canvas.height / 4),
+            10,
+            2000,
+            { runner: 1 }
+        ),
+        new Spawner(
+            new Vec2(canvas.width / 2, canvas.height * (3 / 4)),
+            10,
+            2000,
+            { runner: 1 }
+        )
+    ]
+);
+
+var Level3_Chase = new Level(
+    new Path(
+        [
+            new Vec2(25, 25),
+            new Vec2(25, canvas.height - 25),
+            new Vec2(canvas.width - 25, canvas.height - 25),
+            new Vec2(canvas.width - 25, 25),
+        ],
+        Interpolator.linear,
+        true,
+    ),
+    // list of spawners
+    [
+        new Spawner(
+            new Vec2(canvas.width / 2, canvas.height / 2),
+            20,
+            2000,
+            { runner: 0.5, chaser: 0.5 }
+        ),
+    ]
+);
+
+var levels = [
+    Level1_Division, Level2_Horizon, Level3_Chase
+];
+
 var gc = canvas.getContext("2d");
 
 // set up keyboard
@@ -9,31 +95,16 @@ var points = fillPathCircle();
 var path = new Path(points, Interpolator.catmullRom, true);
 var player = new TurretBase(path, new Vec2(canvas.width / 2, canvas.height / 2));
 player.maxHP = 10;
-player.hp = 1;
+player.hp = 10;
 var bullets = [];
 var enemies = [];
-
 /*
-var old = Date.now();
-function spawnEnemy() {
-    if (Date.now() - old > 1000) {
-        var loc = new Vec2(canvas.width / 2, canvas.height / 2);
-        var rand = Math.random();
-        if (rand < 0.25) {
-            enemies.push(EntityBuilder.build(ENTITY_ID.CHASER.value, loc, player));
-        } else if (rand < 0.35) {
-            enemies.push(EntityBuilder.buildDarter(loc, player));
-        } else {
-            enemies.push(EntityBuilder.buildRunner(loc));
-        }
-        old = Date.now();
-    }
-} */
 var spawner = new Spawner(
     new Vec2(canvas.width / 2, canvas.height / 2),
     50,
     1000,
-    {runner:0.65,chaser:0.25,darter:0.10});
+    {runner:0.65,chaser:0.25,darter:0.10}
+); */
 
 function updatePlayer() {
     player.update();
@@ -93,14 +164,37 @@ function collisionEnemyPlayer() {
         }
     }
 }
-
+var nextLevelScreen = false;
+var nextLevelDelay = 3000;
+var endLevelTime = 0;
+var playerHasWon = false;
 function update() {
-    spawner.spawnEnemy();
-    updatePlayer();
-    updateBullets();
-    updateEnemies();
-    collisionEnemyBullet();
-    collisionEnemyPlayer();
+    // spawner.spawnEnemy();
+    var spawnsLeft = 0;
+    for (var i = 0, j = currentLevel.spawnPoints.length; i < j; i++) {
+        var spawner = currentLevel.spawnPoints[i];
+        spawnsLeft += (spawner.spawnMax - spawner.spawnCount);
+        spawner.spawnEnemy();
+    }
+    if (spawnsLeft <= 0 && enemies.length == 0) {
+        var newIndx = levels.indexOf(currentLevel) + 1;
+        if (newIndx >= levels.length) {
+            playerHasWon = true;
+            return;
+        }
+        currentLevel = levels[newIndx];
+        player.path = currentLevel.path;
+        bullets.splice(0, bullets.length);
+        nextLevelScreen = true;
+        endLevelTime = Date.now();
+        updatePlayer();
+    } else {
+        updatePlayer();
+        updateBullets();
+        updateEnemies();
+        collisionEnemyBullet();
+        collisionEnemyPlayer();
+    }
 }
 
 function drawUI() {
@@ -221,8 +315,10 @@ function drawBullets() {
 function drawPath() {
     gc.beginPath();
     gc.strokeStyle = "purple";
-    for (var i = 0; i < path.points.length; i++) {
-        var p = path.points[i];
+    // for (var i = 0; i < path.points.length; i++) {
+    for (var i = 0; i < currentLevel.path.points.length; i++) {
+        //     var p = path.points[i];
+        var p = currentLevel.path.points[i];
         gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
     }
     gc.closePath();
@@ -248,30 +344,57 @@ function resetGame() {
     player.hp = player.maxHP;
     enemies.splice(0, enemies.length);
     bullets.splice(0, bullets.length);
+    currentLevel = levels[0];
+    player.path = currentLevel.path;
+}
+
+function drawNextLevelScreen() {
+    draw();
+    gc.fillStyle = "black";
+    gc.font = "100px Arial";
+    gc.fillText("Level: " + (levels.indexOf(currentLevel) + 1), canvas.width / 2 - 200, canvas.height / 2);
 }
 
 function mainLoop() {
+    if (playerHasWon) {
+        var cont = confirm("Replay?");
+        if (cont) {
+            resetGame();
+        } else {
+            showStartWindow();
+        }
+    }
     if (player.hp <= 0) {
         var cont = confirm("Continue?");
         if (cont) {
             resetGame();
         } else {
             resetGame();
-            // calls 10 times a second
             showStartWindow();
         }
     } else {
-        update();
-        draw();
+        if (nextLevelScreen == false) {
+            update();
+            draw();
+        } else {
+            if (Date.now() - endLevelTime >= nextLevelDelay) {
+                nextLevelScreen = false;
+            } else {
+                drawNextLevelScreen();
+            }
+        }
     }
 }
 var interval;
+var currentLevel;
 function launchGame() {
     canvas.removeEventListener("click", clickListener, false);
     canvas.removeEventListener("mousemove", mousemoveListener, false);
     clearInterval(interval);
     // calls 60 times a second
     interval = setInterval(mainLoop, 1000 / 60);
+    currentLevel = levels[0];
+    player.path = currentLevel.path;
 }
 class EntryScreenButton {
     constructor(x, y, width, height) {
@@ -289,43 +412,32 @@ var creditsButton = new EntryScreenButton(
 var settingsButton = new EntryScreenButton(
     canvas.width / 2 - 100, 350, 200, 50);
 
-var img = new Image(canvas.width,canvas.height);
+var img = new Image(canvas.width, canvas.height);
 img.src = "images/entry_screen_background.jpg";
-var imgButton = new Image(launchButton.width,launchButton.height);
+var imgButton = new Image(launchButton.width, launchButton.height);
 imgButton.src = "images/entry_screen_button2.png";
 
-function drawButtons() {
-    gc.globalAlpha = launchButton.opacity;
-    gc.drawImage(imgButton,launchButton.x,launchButton.y-10,launchButton.width+20,launchButton.height+20);
-    gc.globalAlpha = launchButton.opacity;
+function drawButton(button = EntryScreenButton, name) {
+    gc.globalAlpha = button.opacity;
+    gc.drawImage(imgButton, button.x, button.y - 10, button.width + 20, button.height + 20);
+    gc.globalAlpha = button.opacity;
     gc.font = "30px Arial";
-    gc.fillStyle = rgb(252,214,47);
-    gc.fillText("Launch",launchButton.x+launchButton.width/4,launchButton.y+launchButton.height/2 + 10);
-    
-    gc.globalAlpha = creditsButton.opacity;
-    gc.drawImage(imgButton,creditsButton.x,creditsButton.y-10,creditsButton.width+20,creditsButton.height+20);
-    gc.globalAlpha = creditsButton.opacity;
-    gc.font = "30px Arial";
-    gc.fillStyle = rgb(252,214,47);
-    gc.fillText("Credits",creditsButton.x+creditsButton.width/4,creditsButton.y+creditsButton.height/2 + 10);
-    
-    gc.globalAlpha = settingsButton.opacity;
-    gc.drawImage(imgButton,settingsButton.x,settingsButton.y-10,settingsButton.width+20,settingsButton.height+20);
-    gc.globalAlpha = settingsButton.opacity;
-    gc.font = "30px Arial";
-    gc.fillStyle = rgb(252,214,47);
-    gc.fillText("Settings",settingsButton.x+settingsButton.width/4,settingsButton.y+settingsButton.height/2 + 10);
-    gc.globalAlpha = 1;
+    gc.fillStyle = rgb(252, 214, 47);
+    gc.fillText(name, button.x + button.width / 4, button.y + button.height / 2 + 10);
+    gc.globalAlpha = 1.0;
 }
 
 function drawEntryScreen() {
     clearCanvas();
-    gc.fillStyle = "black"; 
-    gc.fillRect(0,0,canvas.width,canvas.height);
-    gc.drawImage(img,0,0,canvas.width,canvas.height);
+    gc.fillStyle = "black";
+    gc.fillRect(0, 0, canvas.width, canvas.height);
+    gc.drawImage(img, 0, 0, canvas.width, canvas.height);
     gc.font = "100px Arial";
-    gc.fillText("BIG GUN", canvas.width/2 - 200, 100);
-    drawButtons();
+    gc.fillText("BIG GUN", canvas.width / 2 - 200, 100);
+
+    drawButton(launchButton, "Launch");
+    drawButton(creditsButton, "Credits");
+    drawButton(settingsButton, "Settings");
 }
 
 
@@ -345,39 +457,26 @@ function clickListener(evt) {
     var mousePos = getMousePos(canvas, evt);
     if (isInside(mousePos, launchButton)) {
         launchGame();
-    } else
-    if (isInside(mousePos, creditsButton)) {
-      //  launchCredits();
-    } else
-    if (isInside(mousePos, settingsButton)) {
-      //  launchSettings();
+    } else if (isInside(mousePos, creditsButton)) {
+        //  launchCredits();
+    } else if (isInside(mousePos, settingsButton)) {
+        //  launchSettings();
     }
 }
 
-function mousemoveListener(evt){
+function mousemoveListener(evt) {
     var mousePos = getMousePos(canvas, evt);
-    if (isInside(mousePos, launchButton)) {
-        launchButton.opacity = 1.0;
-    } else {
-        launchButton.opacity = 0.9;
-    }
-     if (isInside(mousePos, creditsButton)) {
-        creditsButton.opacity = 1.0;
-    } else {
-        creditsButton.opacity = 0.9;
-    }
-    if (isInside(mousePos, settingsButton)) {
-        settingsButton.opacity = 1.0;
-    } else {
-        settingsButton.opacity = 0.9;
-    }
+    launchButton.opacity = (isInside(mousePos, launchButton)) ? 1.0 : 0.9;
+    creditsButton.opacity = (isInside(mousePos, creditsButton)) ? 1.0 : 0.9;
+    settingsButton.opacity = (isInside(mousePos, settingsButton)) ? 1.0 : 0.9;
+
 }
 
 function showStartWindow() {
     canvas.addEventListener("click", clickListener, false);
     canvas.addEventListener("mousemove", mousemoveListener, false);
     clearInterval(interval);
-    interval = setInterval(drawEntryScreen,1000/10);
+    interval = setInterval(drawEntryScreen, 1000 / 10);
 }
 
 showStartWindow();
