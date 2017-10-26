@@ -72,6 +72,7 @@ var ENTITY_ID = {
     FATTY: { value: 6, name: "Fatty" },
     MAGE: { value: 7, name: "Mage" },
     PRIEST: { value: 8, name: "Priest" },
+    AMALGAMATE: { value: 100, name: "Amalgamate" },
 }
 Object.freeze(ENTITY_ID);
 
@@ -99,12 +100,142 @@ class Entity {
     }
 
     move() {
-        if (this.velocity == undefined) {
+        if (this.velocity == undefined || this.velocity == 0) {
             // do nothing
         } else {
             // add velocity to position
             this.position.addLocal(this.velocity);
         }
+    }
+}
+
+class Amalgamate extends Entity {
+    constructor(data = EntityData, target = Entity) {
+        super(data);
+        this.target = target;
+        // core is surrounded by multiple layers
+        this.parts = [];
+        var innerParts = this.buildInner();
+        for (var i = 0, j = innerParts.length; i < j; i++) {
+            this.parts.push(innerParts[i]);
+        }
+        var middleParts = this.buildMidle();
+        for (var i = 0, j = middleParts.length; i < j; i++) {
+            this.parts.push(middleParts[i]);
+        }
+        //  var outerParts = this.buildOuter();
+        //  for (var i = 0, j = outerParts.length; i < j; i++) {
+        //       this.parts.push(outerParts[i]);
+        //   }
+        this.detonationTimer = Date.now();
+        this.fireTimer = Date.now();
+        this.rotationSpeed = 1;
+    }
+
+    buildInner() {
+        var radius = 12;
+        var distFromCenter = this.bounds.radius + radius;
+        var innerParts = [];
+        var count = 8;
+        for (var i = 0; i < count; i++) {
+            var data = {
+                id: -1,
+                position:
+                Vec2
+                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
+                    .addLocal(this.position),
+                bounds: new CircleBounds(radius),
+                velocity: new Vec2(0, 0),
+                maxHP: 15,
+                hp: 15,
+            }
+            innerParts.push(new Entity(data));
+        }
+        return innerParts;
+    }
+
+    buildMidle() {
+        var radius = 10;
+        var distFromCenter = this.bounds.radius + 24 + radius;
+        var middleParts = [];
+        var count = 16;
+        for (var i = 0; i < count; i++) {
+            var data = {
+                id: -2,
+                position:
+                Vec2
+                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
+                    .addLocal(this.position),
+                bounds: new CircleBounds(radius),
+                velocity: new Vec2(0, 0),
+                maxHP: 5,
+                hp: 5,
+            }
+            middleParts.push(new Entity(data));
+        }
+        return middleParts;
+    }
+
+    buildOuter() {
+        var radius = 5;
+        var distFromCenter = this.bounds.radius + radius;
+        var outerParts = [];
+        var count = 32;
+        for (var i = 0; i < count; i++) {
+            var data = {
+                id: -3,
+                position:
+                Vec2
+                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
+                    .addLocal(this.position),
+                bounds: new CircleBounds(radius),
+                velocity: new Vec2(0, 0),
+                maxHP: 2,
+                hp: 2,
+            }
+            outerParts.push(new Entity(data));
+        }
+        return outerParts;
+    }
+
+    update() {
+        super.update();
+        for (var i = 0; i < this.parts.length; i++) {
+            this.parts[i].update();
+        }
+        if (this.hp / this.maxHP < 0.75) {
+            if(Date.now() - this.detonationTimer >= 5000){
+                this.detonate();
+                this.detonationTimer = Date.now();
+            }
+        }
+        if(Date.now() - this.fireTimer >= 2000){
+            this.shootAtPlayer();
+            this.fireTimer = Date.now();
+        }
+    }
+
+    // shoots outer layer projectiles outward
+    detonate() {
+        var outerParts = this.buildOuter();
+        for (var i = 0, j = outerParts.length; i < j; i++) {
+            this.parts.push(outerParts[i]);
+        }
+        for (var i = 0; i < this.parts.length; i++) {
+            var p = this.parts[i];
+            if (p.id == -3) {
+                p.velocity = p
+                    .position
+                    .sub(this.position)
+                    .normalizeLocal()
+                    .multLocal(10);
+
+            }
+        }
+    }
+
+    shootAtPlayer(){
+        enemies.push(EntityBuilder.buildDarter(this.position.copy(),this.target));
     }
 }
 
@@ -120,11 +251,12 @@ class EntityBuilder {
             case 6: return EntityBuilder.buildFatty(position);
             case 7: return EntityBuilder.buildMage(position);
             case 8: return EntityBuilder.buildPriest(position);
+            case 100: return EntityBuilder.buildAmalgamate(position, target);
             default: throw new Error("unknown id");
         }
     }
     static buildPlayer(position) {
-
+        return null;
     }
     static buildRunner(position) {
         // runs in random direction
@@ -158,8 +290,8 @@ class EntityBuilder {
         chaser.update = function () {
             var dx = this.target.position.x - this.position.x;
             var dy = this.target.position.y - this.position.y;
-            this.velocity = new Vec2(dx, dy).normalizeLocal().multLocal(1.5),
-                oldUpdate.apply(this, arguments);
+            this.velocity = new Vec2(dx, dy).normalizeLocal().multLocal(1.5);
+            oldUpdate.apply(this, arguments);
         }
         return chaser;
     }
@@ -194,6 +326,19 @@ class EntityBuilder {
     static buildPriest(position) {
         // stationary, heals nearby
     }
+
+    static buildAmalgamate(position, target) {
+        // first boss
+        var data = {
+            id: ENTITY_ID.AMALGAMATE.value,
+            position: position,
+            bounds: new CircleBounds(20),
+            velocity: new Vec2(0, 0),
+            maxHP: 50,
+            hp: 50,
+        }
+        return new Amalgamate(data, target);
+    }
 }
 var RatioTable = {
     runner: 0,
@@ -204,8 +349,9 @@ var RatioTable = {
     fatty: 0,
     mage: 0,
     priest: 0,
+    amalgamate: 0,
 }
-var ids = [1, 2, 3, 4, 5, 6, 7, 8];
+var ids = [1, 2, 3, 4, 5, 6, 7, 8, 100];
 
 class Spawner {
     constructor(position = Vec2, spawnMax = 1, delay = 1000, ratioTable = RatioTable) {
@@ -222,7 +368,8 @@ class Spawner {
             this.ratioTable.spinner,
             this.ratioTable.fatty,
             this.ratioTable.mage,
-            this.ratioTable.priest
+            this.ratioTable.priest,
+            this.ratioTable.amalgamate,
         ]
         this.weightedSum = 0;
         for (var i = 0, j = this.weights.length; i < j; i++) {
@@ -240,7 +387,7 @@ class Spawner {
         var roll = this.randomize(0, this.weightedSum);
         var sum = 0;
         for (var i = 0, j = this.weights.length; i < j; i++) {
-            sum += this.weights[i];
+            sum += (this.weights[i] == undefined) ? 0 : this.weights[i];
             if (roll <= sum) {
                 return EntityBuilder.build(ids[i], this.position.copy(), player);
             }

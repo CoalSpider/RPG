@@ -190,4 +190,26 @@ class Vec2{
         var ab = b.sub(a);
         return a.add(ab.multLocal(Vec2.segmentScalarProj(p,a,b)));
     }
+
+    /* assumes rotation around origin
+    returns a new vector containing the result */
+    static rotateV(p=Vec2,rotationRad=0){
+        var cos = Math.cos(rotationRad);
+        var sin = Math.sin(rotationRad);
+        var xNew = p.x*cos + p.y*sin;
+        var yNew = p.x*sin - p.y*cos;
+        return new Vec2(xNew,yNew);
+    }
+
+    /* assumes rotation around origin
+    modifies the given vector */
+    static rotateLocalV(p=Vec2,rotationRad=0){
+        var cos = Math.cos(rotationRad);
+        var sin = Math.sin(rotationRad);
+        var xNew = p.x*cos + p.y*sin;
+        var yNew = p.x*sin - p.y*cos;
+        p.x = xNew;
+        p.y = yNew;
+        return p;
+    }
 }

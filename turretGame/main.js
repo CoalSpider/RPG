@@ -8,6 +8,7 @@ class Level {
 var canvas = document.getElementById("canvas");
 
 var Level1_Division = new Level(
+    // vertical line
     new Path(
         [
             new Vec2(canvas.width / 2, 25),
@@ -34,6 +35,7 @@ var Level1_Division = new Level(
 );
 
 var Level2_Horizon = new Level(
+    // horizontal line
     new Path(
         [
             new Vec2(25, canvas.height / 2),
@@ -60,13 +62,13 @@ var Level2_Horizon = new Level(
 );
 
 var Level3_Chase = new Level(
+    // square
     new Path(
-        [
-            new Vec2(25, 25),
-            new Vec2(25, canvas.height - 25),
-            new Vec2(canvas.width - 25, canvas.height - 25),
-            new Vec2(canvas.width - 25, 25),
-        ],
+        rectanglePath(
+            (canvas.width-50)/2,
+            (canvas.height-50)/2, 
+            new Vec2(canvas.width/2,canvas.height/2)
+        ),
         Interpolator.linear,
         true,
     ),
@@ -81,8 +83,51 @@ var Level3_Chase = new Level(
     ]
 );
 
+var Level4_SoFast = new Level(
+    // triangle
+    new Path(
+        eqTrianglePath(
+            (canvas.height/2),
+            new Vec2(canvas.width/2,canvas.height/2)
+        ),
+        Interpolator.linear,
+        true,
+    ),
+    // list of spawners
+    [
+        new Spawner(
+            new Vec2(canvas.width / 2, canvas.height / 2),
+            20,
+            2000,
+            { runner: 0.5, chaser: 0.10, darter: 0.40, }
+        ),
+    ]
+);
+
+var Level5_Boss = new Level(
+    // circle
+    new Path(
+        fillPathCircle(),
+        Interpolator.catmullRom,
+        true,
+    ),
+    // list of spawners
+    [
+        new Spawner(
+            new Vec2(canvas.width / 2, canvas.height / 2),
+            1,
+            1000,
+            { amalgamate: 1.0}
+        ),
+    ]
+);
+
 var levels = [
-    Level1_Division, Level2_Horizon, Level3_Chase
+    Level1_Division,
+    Level2_Horizon,
+    Level3_Chase,
+    Level4_SoFast,
+    Level5_Boss
 ];
 
 var gc = canvas.getContext("2d");
@@ -124,19 +169,49 @@ function updateBullets() {
 function updateEnemies() {
     for (var i = 0; i < enemies.length; i++) {
         enemies[i].update();
-        var e = enemies[i];
-        if (e.x < 0 || e.y < 0 || e.x > canvas.width || e.y > canvas.width) {
+        var p = enemies[i].position;
+        if (p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height) {
             enemies.splice(i, 1);
             i--;
+        }
+        if(enemies[i].id == 100){
+            for(var j = 0; j < enemies.length; j++){
+                var ep = enemies[i].parts[j];
+                if (ep.x < 0 || ep.y < 0 || ep.x > canvas.width || ep.y > canvas.height) {
+                    enemies[i].parts.splice(j, 1);
+                    j--;
+                }
+            }
         }
     }
 }
 function collisionEnemyBullet() {
     // brute force check every bullet agianst every enemy
+    bLoop:
     for (var i = 0; i < bullets.length; i++) {
         var b = bullets[i];
+        eLoop:
         for (var j = 0; j < enemies.length; j++) {
             var e = enemies[j];
+            // if were a multipart boss
+            if(e.id == 100){
+                pLoop:
+                for(var p = 0; p < e.parts.length; p++){
+                    var part = e.parts[p];
+                    var collide = 
+                    circleCircleCollision(b.position,4,part.position,10);
+                    if(collide){
+                        bullets.splice(bullets.indexOf(b),1);
+                        i -= 1;
+                        part.hp -= 1;
+                        if(part.hp <= 0){
+                            e.parts.splice(e.parts.indexOf(part),1);
+                            p -= 1;
+                        }
+                        continue bLoop;
+                    }
+                }
+            }
             var collide = circleCircleCollision(b.position, 4, e.position, 10);
             if (collide) {
                 bullets.splice(bullets.indexOf(b), 1);
@@ -146,7 +221,7 @@ function collisionEnemyBullet() {
                     j -= 1;
                 }
                 i -= 1;
-                break;
+                continue bLoop;
             }
         }
     }
@@ -155,7 +230,19 @@ function collisionEnemyPlayer() {
     // brute force check every enemy agianst the turret-base/player
     for (var i = 0; i < enemies.length; i++) {
         var e = enemies[i];
-        var collide = circleBoxCollision(new Vec2(e.position.x, e.position.y), 10, new Vec2(player.position.x, player.position.y), player.bounds);
+        if(e.id == 100){
+            for(var p = 0; p < e.parts.length; p++){
+                var part = e.parts[p];
+                var collide = circleBoxCollision(part.position, part.bounds.radius, player.position, player.bounds);
+                if (collide) {
+                    player.hp -= 1;
+                    e.parts.splice(e.parts.indexOf(part), 1);
+                    p -= 1;
+                    // TODO: iframe
+                }
+            }
+        }
+        var collide = circleBoxCollision(e.position, e.bounds.radius, player.position, player.bounds);
         if (collide) {
             player.hp -= 1;
             enemies.splice(enemies.indexOf(e), 1);
@@ -176,7 +263,7 @@ function update() {
         spawnsLeft += (spawner.spawnMax - spawner.spawnCount);
         spawner.spawnEnemy();
     }
-    if (spawnsLeft <= 0 && enemies.length == 0) {
+    if (spawnsLeft <= 0 && enemies.length <= 0) {
         var newIndx = levels.indexOf(currentLevel) + 1;
         if (newIndx >= levels.length) {
             playerHasWon = true;
@@ -197,162 +284,13 @@ function update() {
     }
 }
 
-function drawUI() {
-    var ratio = Math.max(0, player.hp / player.maxHP);
-    gc.fillStyle = "red";
-    gc.fillRect(25, 25, canvas.width / 4, 50);
-    gc.fillStyle = "green";
-    gc.fillRect(25, 25, canvas.width / 4 * ratio, 50);
-    gc.strokeStyle = "black";
-    var lw = 5;
-    gc.lineWidth = lw;
-    gc.strokeRect(25 - lw / 2, 25 - lw / 2, canvas.width / 4 + lw, 50 + lw);
-    gc.lineWidth = 1;
-}
-
-function drawCircleBounds(position, bounds) {
-    gc.arc(position.x, position.y, bounds.radius, 0, Math.PI * 2);
-}
-
-function drawRectBounds(position, bounds) {
-    var pnts = bounds.getPoints(position);
-    gc.moveTo(pnts[0].x, pnts[0].y);
-    for (var i = 1, j = pnts.length; i < j; i++) {
-        gc.lineTo(pnts[i].x, pnts[i].y);
-    }
-    gc.lineTo(pnts[0].x, pnts[0].y);
-}
-
-function drawAxisRectBounds(position, bounds) {
-    var hw = bounds.halfWidth;
-    var hh = bounds.halfHeight;
-    gc.strokeRect(position.x - hw, position.y - hh, hw * 2, hh * 2);
-}
-
-function drawBounds(position, bounds) {
-    gc.beginPath();
-    if (bounds instanceof CircleBounds) {
-        drawCircleBounds(position, bounds);
-    } else if (bounds instanceof RectBounds) {
-        drawRectBounds(position, bounds);
-    } else if (bounds instanceof AxisRectBounds) {
-        drawAxisRectBounds(position, bounds);
-    } else {
-        throw new Error("unknown bounds");
-    }
-    gc.closePath();
-    gc.stroke();
-}
-
-function drawHPBar(entity, color, hpColor) {
-    var hp = entity.hp;
-    var maxHP = entity.maxHP;
-    var x = entity.position.x;
-    var y = entity.position.y;
-    gc.beginPath();
-    gc.fillStyle = hpColor;
-    gc.arc(x, y, 9, 0, Math.PI * 2);
-    gc.fill();
-    gc.closePath();
-    gc.beginPath();
-    gc.fillStyle = color;
-    var ratio = hp / maxHP;
-    // pie slice style
-    /*
-    gc.moveTo(x,y);
-    gc.arc(x,y, 9, 0, Math.PI * 2 * ratio, false);
-    gc.lineTo(x,y); 
-    */
-    // energy style
-    gc.arc(x, y, ratio * 10, 0, Math.PI * 2, false);
-    gc.fill();
-    gc.closePath();
-}
-
-function clearCanvas() {
-    gc.clearRect(0, 0, canvas.width, canvas.height);
-    gc.strokeStyle = "black";
-    gc.strokeRect(0, 0, canvas.width, canvas.height);
-}
-
-function drawEnemies() {
-    for (var i = 0, j = enemies.length; i < j; i++) {
-        var e = enemies[i];
-        var pos = e.position;
-        var bounds = e.bounds;
-        var hpColor = undefined;
-        var color = undefined;
-        switch (e.id) {
-            case 0: color = "black"; hpColor = "grey"; break;
-            case 1: color = "red"; hpColor = "black"; break;
-            case 2: color = "blue"; hpColor = "black"; break;
-            case 3: color = "orange"; hpColor = "black"; break;
-            case 4: color = "pink"; hpColor = "black"; break;
-            case 5: color = "pink"; hpColor = "black"; break;
-            case 6: color = "pink"; hpColor = "black"; break;
-            case 7: color = "pink"; hpColor = "black"; break;
-            case 8: color = "pink"; hpColor = "black"; break;
-            default: throw new Error("unknown entity");
-        }
-        gc.strokeStyle = color;
-        drawBounds(pos, bounds);
-        if (e.hp != undefined) {
-            drawHPBar(e, color, hpColor);
-        }
-    }
-}
-
-function drawBullets() {
-    gc.strokeStyle = "black";
-    for (var i = 0, j = bullets.length; i < j; i++) {
-        var b = bullets[i];
-        var x = b.position.x;
-        var y = b.position.y;
-        drawBounds(b.position, b.bounds);
-    }
-}
-
-function drawPath() {
-    gc.beginPath();
-    gc.strokeStyle = "purple";
-    // for (var i = 0; i < path.points.length; i++) {
-    for (var i = 0; i < currentLevel.path.points.length; i++) {
-        //     var p = path.points[i];
-        var p = currentLevel.path.points[i];
-        gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
-    }
-    gc.closePath();
-    gc.stroke();
-}
-
-function drawPlayer() {
-    gc.strokeStyle = "black";
-    drawBounds(player.position, player.bounds);
-    drawBounds(player.barrel.position, player.barrel.bounds);
-}
-
-function draw() {
-    clearCanvas();
-    drawEnemies();
-    drawBullets();
-    drawPath();
-    drawPlayer();
-    drawUI();
-}
-
 function resetGame() {
     player.hp = player.maxHP;
     enemies.splice(0, enemies.length);
     bullets.splice(0, bullets.length);
     currentLevel = levels[0];
     player.path = currentLevel.path;
-}
-
-function drawNextLevelScreen() {
-    draw();
-    gc.fillStyle = "black";
-    gc.font = "100px Arial";
-    gc.fillText("Level: " + (levels.indexOf(currentLevel) + 1), canvas.width / 2 - 200, canvas.height / 2);
+    playerHasWon = false;
 }
 
 function mainLoop() {
@@ -361,6 +299,7 @@ function mainLoop() {
         if (cont) {
             resetGame();
         } else {
+            resetGame();
             showStartWindow();
         }
     }
@@ -393,7 +332,7 @@ function launchGame() {
     clearInterval(interval);
     // calls 60 times a second
     interval = setInterval(mainLoop, 1000 / 60);
-    currentLevel = levels[0];
+    currentLevel = levels[4];
     player.path = currentLevel.path;
 }
 class EntryScreenButton {
@@ -416,30 +355,6 @@ var img = new Image(canvas.width, canvas.height);
 img.src = "images/entry_screen_background.jpg";
 var imgButton = new Image(launchButton.width, launchButton.height);
 imgButton.src = "images/entry_screen_button2.png";
-
-function drawButton(button = EntryScreenButton, name) {
-    gc.globalAlpha = button.opacity;
-    gc.drawImage(imgButton, button.x, button.y - 10, button.width + 20, button.height + 20);
-    gc.globalAlpha = button.opacity;
-    gc.font = "30px Arial";
-    gc.fillStyle = rgb(252, 214, 47);
-    gc.fillText(name, button.x + button.width / 4, button.y + button.height / 2 + 10);
-    gc.globalAlpha = 1.0;
-}
-
-function drawEntryScreen() {
-    clearCanvas();
-    gc.fillStyle = "black";
-    gc.fillRect(0, 0, canvas.width, canvas.height);
-    gc.drawImage(img, 0, 0, canvas.width, canvas.height);
-    gc.font = "100px Arial";
-    gc.fillText("BIG GUN", canvas.width / 2 - 200, 100);
-
-    drawButton(launchButton, "Launch");
-    drawButton(creditsButton, "Credits");
-    drawButton(settingsButton, "Settings");
-}
-
 
 function getMousePos(canvas, event) {
     var rect = canvas.getBoundingClientRect();

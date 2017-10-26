@@ -160,6 +160,26 @@ function fillPathCircle() {
     }
     return points;
 }
+
+function eqTrianglePath(halfHeight=1,centerPoint=Vec2){
+    var points = [
+        Vec2.rotateLocalV(new Vec2(halfHeight,0),toRad(0)).addLocal(centerPoint),
+        Vec2.rotateLocalV(new Vec2(halfHeight,0),toRad(120)).addLocal(centerPoint),
+        Vec2.rotateLocalV(new Vec2(halfHeight,0),toRad(240)).addLocal(centerPoint),
+    ];
+    return points;
+}
+
+function rectanglePath(halfWidth=1,halfHeight=1,centerPoint=Vec2){
+    // clockwise
+    var points = [
+        new Vec2(-halfWidth,-halfHeight).addLocal(centerPoint),
+        new Vec2(-halfWidth,halfHeight).addLocal(centerPoint),
+        new Vec2(halfWidth,halfHeight).addLocal(centerPoint),
+        new Vec2(halfWidth,-halfHeight).addLocal(centerPoint),
+    ]
+    return points;
+}
 // TEST CODE: DO NOT REMOVE
 /*
 var points = fillPathCircle();
