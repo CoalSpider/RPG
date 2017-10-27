@@ -420,10 +420,10 @@ class TurretBase extends Entity {
 
     update() {
         if (keyBoard.isDown(KeyCode.LEFT_ARROW)) {
-            this.bounds.angleRad -= 0.025;
+            this.bounds.angleRad -= 0.05;
         }
         if (keyBoard.isDown(KeyCode.RIGHT_ARROW)) {
-            this.bounds.angleRad += 0.025;
+            this.bounds.angleRad += 0.05;
         }
         if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
             this.path.backward();

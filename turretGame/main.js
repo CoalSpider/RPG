@@ -7,6 +7,10 @@ class Level {
 
 var canvas = document.getElementById("canvas");
 
+var Level0_Test = new Level(
+    
+);
+
 var Level1_Division = new Level(
     // vertical line
     new Path(
@@ -177,7 +181,7 @@ function updateEnemies() {
         if(enemies[i].id == 100){
             for(var j = 0; j < enemies.length; j++){
                 var ep = enemies[i].parts[j];
-                if (ep.x < 0 || ep.y < 0 || ep.x > canvas.width || ep.y > canvas.height) {
+                if (ep.position.x < 0 || ep.position.y < 0 || ep.position.x > canvas.width || ep.position.y > canvas.height) {
                     enemies[i].parts.splice(j, 1);
                     j--;
                 }
