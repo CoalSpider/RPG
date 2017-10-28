@@ -38,166 +38,91 @@ function rectanglePath(halfWidth = 1, halfHeight = 1, centerPoint = Vec2) {
     ]
     return points;
 } */
-
 class Path {
     constructor(pathSegments = []) {
         this.pathSegments = pathSegments;
         this.currentPath = pathSegments[0];
 
-        this.setTransitionPoint(true);
+       this.transitionPoint = this.currentPath.attachmentPoint;
+    }
+    addTrack(track){
+        this.pathSegments.push(track);
+        this.transitionPoint = track.attachmentPoint;
     }
 
-    setTransitionPoint(isForward) {
-        var newIndx = this.pathSegments.indexOf(this.currentPath);
-        newIndx += (isForward) ? 1 : -1;
-        if (newIndx >= this.pathSegments.length || newIndx < 0) {
-            // do nothing
-        } else {
-            var currPoints = this.currentPath.points;
-            var nextPoints = this.pathSegments[newIndx].points;
-            for (var i = 0; i < nextPoints.length; i++) {
-                var indx = currPoints.indexOf(nextPoints[i]);
-                if (indx != -1) {
-                    this.transitionPoint = currPoints[indx];
-                    break;
-                }
-            }
-        }
-    }
-
-    movePath(isForward) {
+    movePath(isForward){
         var newIndx = this.pathSegments.indexOf(this.currentPath);
         newIndx += (isForward) ? 1 : -1;
         if (newIndx >= this.pathSegments.length || newIndx < 0) {
             // do nothing
         } else {
             this.currentPath = this.pathSegments[newIndx];
-            this.setTransitionPoint(isForward);
-            if(this.currentPath instanceof WrappingSegment && this.pathSegments.length==3){
-               /* TODO: modular path building */
-                this.pathSegments.splice(0,1);
-                this.pathSegments.splice(1,1);
+            if (this.pathSegments.length > 1) {
+                this.pathSegments.splice(0, 1);
             }
         }
     }
 
     forward() {
-        this.setTransitionPoint(true);
-        this.currentPath.forward();
+        this.currentPath.track.forward();
+        // no valid point so just return
+        if (this.transitionPoint == undefined) return;
         // essentially we check if we collide with the transition point
-        if (distSqrd(this.currentPath.currentPoint, this.transitionPoint) < 1) {
+        if (distSqrd(this.currentPath.track.currentPoint, this.transitionPoint) < 1) {
             this.movePath(true);
         }
     }
 
     backward() {
-        this.setTransitionPoint(false);
-        this.currentPath.backward();
+        this.currentPath.track.backward();
+        // no valid point so just return
+        if (this.transitionPoint == undefined) return;
         // essentially we check if we collide with the transition point
-        if (distSqrd(this.currentPath.currentPoint, this.transitionPoint) < 1) {
+        if (distSqrd(this.currentPath.track.currentPoint, this.transitionPoint) < 1) {
             this.movePath(false);
         }
     }
 }
-
-/* paths are made of segments **/
-class WrappingSegment {
-    constructor(circularList, interpolationMethod) {
-        this.circularList = circularList;
-        this.points = circularList.elements;
-        if (this.circularList.len() < 4) {
-            throw new Error("list must be given at least 4 points");
+class TrackPart {
+    constructor(points = [], interpolationMethod, isWrapping = false) {
+        if (isWrapping) {
+            if (points.length < 4) {
+                throw new Error("wrapping path must be at least 4 points");
+            }
+        } else {
+            if (points.length < 2) {
+                throw new Error("non wrapping path must be at least 2 points");
+            }
         }
-
+        this.circularList = new CircularList(points);
+        this.points = this.circularList.elements;
         this.interpolationMethod = interpolationMethod;
-        this.circularList.pointer = this.circularList.len() - 2;
 
-        this.splineHelperBehind = this.circularList.next();
-        this.targetBehind = this.circularList.next();
-        this.targetForward = this.circularList.next();
-        this.splineHelperForward = this.circularList.next();
         this.percentBetweenTargets = 0;
 
-        this.setCurrentPoint();
-    }
+        this.isWrapping = isWrapping;
 
-    setCurrentPoint() {
-        if (this.interpolationMethod == Interpolator.linear) {
-            this.currentPoint = this.interpolationMethod(
-                this.targetBehind,
-                this.targetForward,
-                this.percentBetweenTargets
-            );
-        } else if (this.interpolationMethod == Interpolator.hermite) {
-            this.currentPoint = this.interpolationMethod(
-                this.splineHelperBehind,
-                this.targetBehind,
-                this.targetForward,
-                this.splineHelperForward,
-                this.percentBetweenTargets,
-                0, // bias
-                0 // tolerance
-            );
-        } else {
-            this.currentPoint = this.interpolationMethod(
-                this.splineHelperBehind,
-                this.targetBehind,
-                this.targetForward,
-                this.splineHelperForward,
-                this.percentBetweenTargets
-            );
-        }
-    }
+        // if theres no objective the path does not wrap from start to end
+        if (this.isWrapping) {
+            // we want the target forward to be indx 0
+            this.circularList.pointer = this.circularList.len() - 2;
 
-    forward() {
-        this.percentBetweenTargets += 0.02;
-        if (this.percentBetweenTargets >= 1) {
-            this.circularList.pointer = this.circularList.indexOf(this.splineHelperBehind);
             this.splineHelperBehind = this.circularList.next();
             this.targetBehind = this.circularList.next();
             this.targetForward = this.circularList.next();
             this.splineHelperForward = this.circularList.next();
+        } else {
+            // add duplicate points so the player can appear at the end of
+            // the path but interpolation still works
+            // shift end points a little so we can debug
+            this.circularList.unshift(this.circularList.get(0).sub(new Vec2(5, 5)));
+            this.circularList.push(this.circularList.get(this.circularList.len() - 1).add(new Vec2(5, 5)));
 
-            this.percentBetweenTargets -= 1;
+            this.splineHelperBehind = this.circularList.get(0);
+            this.targetBehind = this.circularList.get(1);
+            this.targetForward = this.circularList.get(2);
+            this.splineHelperForward = this.circularList.get(3);
         }
-
-        this.setCurrentPoint();
-    }
-
-    backward() {
-        this.percentBetweenTargets -= 0.02;
-        if (this.percentBetweenTargets < 0) {
-            this.circularList.pointer = this.circularList.indexOf(this.splineHelperForward);
-            this.splineHelperForward = this.circularList.previous();
-            this.targetForward = this.circularList.previous();
-            this.targetBehind = this.circularList.previous();
-            this.splineHelperBehind = this.circularList.previous();
-
-            this.percentBetweenTargets += 1;
-        }
-
-        this.setCurrentPoint();
-    }
-}
-
-class Segment {
-    constructor(points, interpolationMethod) {
-        this.points = points;
-        if (this.points.length < 2) {
-            throw new Error("list must be given at least 2 points");
-        }
-
-        // add duplicate point to start/end for non linear interpolation
-        this.points.unshift(this.points[0].sub(new Vec2(5, 5)));
-        this.points.push(this.points[this.points.length - 1].add(new Vec2(5, 5)));
-
-        this.interpolationMethod = interpolationMethod;
-
-        this.splineHelperBehind = this.points[0];
-        this.targetBehind = this.points[1];
-        this.targetForward = this.points[2];
-        this.splineHelperForward = this.points[3];
-        this.percentBetweenTargets = 0;
 
         this.setCurrentPoint();
     }
@@ -233,15 +158,29 @@ class Segment {
     forward() {
         this.percentBetweenTargets += 0.02;
         if (this.percentBetweenTargets >= 1) {
-            var indx = this.points.indexOf(this.splineHelperForward) + 1;
-            if (indx > this.points.length - 1) {
-                this.percentBetweenTargets = 1;
-            } else {
-                this.splineHelperBehind = this.points[indx - 3];
-                this.targetBehind = this.points[indx - 2];
-                this.targetForward = this.points[indx - 1];
-                this.splineHelperForward = this.points[indx];
+            if (this.isWrapping) {
+                this.circularList.pointer = this.circularList.indexOf(this.splineHelperBehind);
+
+                this.splineHelperBehind = this.circularList.next();
+                this.targetBehind = this.circularList.next();
+                this.targetForward = this.circularList.next();
+                this.splineHelperForward = this.circularList.next();
+
                 this.percentBetweenTargets -= 1;
+            } else {
+                var indx = this.circularList.indexOf(this.splineHelperForward) + 1;
+                if (indx > this.circularList.len() - 1) {
+                    this.percentBetweenTargets = 1;
+                } else {
+                    this.circularList.pointer = indx + 1;
+
+                    this.splineHelperForward = this.circularList.previous();
+                    this.targetForward = this.circularList.previous();
+                    this.targetBehind = this.circularList.previous();
+                    this.splineHelperBehind = this.circularList.previous();
+
+                    this.percentBetweenTargets -= 1;
+                }
             }
         }
 
@@ -251,27 +190,36 @@ class Segment {
     backward() {
         this.percentBetweenTargets -= 0.02;
         if (this.percentBetweenTargets < 0) {
-            var indx = this.points.indexOf(this.splineHelperBehind) - 1;
-            if (indx < 0) {
-                this.percentBetweenTargets = 0;
-            } else {
-                this.splineHelperBehind = this.points[indx];
-                this.targetBehind = this.points[indx + 1];
-                this.targetForward = this.points[indx + 2];
-                this.splineHelperForward = this.points[indx + 3];
+            if (this.isWrapping) {
+                this.circularList.pointer = this.circularList.indexOf(this.splineHelperForward);
+
+                this.splineHelperForward = this.circularList.previous();
+                this.targetForward = this.circularList.previous();
+                this.targetBehind = this.circularList.previous();
+                this.splineHelperBehind = this.circularList.previous();
+
                 this.percentBetweenTargets += 1;
+            } else {
+                var indx = this.circularList.indexOf(this.splineHelperBehind) - 1;
+                if (indx < 0) {
+                    this.percentBetweenTargets = 0;
+                } else {
+                    this.circularList.pointer = indx - 1;
+
+                    this.splineHelperBehind = this.circularList.next();
+                    this.targetBehind = this.circularList.next();
+                    this.targetForward = this.circularList.next();
+                    this.splineHelperForward = this.circularList.next();
+
+                    this.percentBetweenTargets += 1;
+                }
             }
         }
-
         this.setCurrentPoint();
     }
 }
-var canvas = document.getElementById("canvas");
-var gc = canvas.getContext("2d");
-var keyboard = new Keyboard();
-keyboard.listenForEvents();
 
-function fillPathCircle() {
+function circlePoints(){
     var points = [];
     for (var i = 0; i < 360; i += 60) {
         var rad = toRad(i + 180);
@@ -283,34 +231,57 @@ function fillPathCircle() {
     return points;
 }
 
-function pathBefore(hookPoint) {
+function linePoints(){
     var points = [];
-    points.push(new Vec2(25, canvas.height / 2));
-    points.push(points[0].add(new Vec2(25, 0)));
-    points.push(points[1].add(new Vec2(25, 0)));
-    points.push(points[2].add(new Vec2(25, 0)));
-    points.push(points[3].add(new Vec2(25, 0)));
-    points.push(points[4].add(new Vec2(25, 0)));
-    points.push(hookPoint);
+    points.push(new Vec2(0,0));
+    for (var i = 0; i < 5; i++) {
+        points.push(points[points.length - 1].add(new Vec2(25, 0)));
+    }
     return points;
 }
 
-function pathAfter(hookPoint) {
-    var points = [];
-    points.push(hookPoint);
-    points.push(points[0].add(new Vec2(25, 0)));
-    points.push(points[1].add(new Vec2(25, 0)));
-    points.push(points[2].add(new Vec2(25, 0)));
-    points.push(points[3].add(new Vec2(25, 0)));
-    points.push(points[4].add(new Vec2(25, 0)));
-    points.push(points[5].add(new Vec2(25, 0)));
-    return points;
+class CircleTrack{
+    constructor(attachmentPoint){
+        var points = circlePoints();
+        var circleAttach = points[0];
+        var dX = attachmentPoint.x - circleAttach.x;
+        var dY = attachmentPoint.y - circleAttach.y;
+        var delta = new Vec2(dX,dY);
+        // shift to match attachment point
+        for(var i = 0; i < points.length; i++){
+            points[i].addLocal(delta);
+        }
+        this.track = new TrackPart(points,Interpolator.catmullRom,true);
+        this.attachmentPoint = attachmentPoint;
+        this.anchorPoint = points[3];
+    }
 }
 
-var pathSeg = new WrappingSegment(new CircularList(fillPathCircle()), Interpolator.catmullRom);
-var pathBefore = new Segment(pathBefore(pathSeg.circularList.get(0)), Interpolator.linear);
-var pathAfter = new Segment(pathAfter(pathSeg.circularList.get(3)), Interpolator.linear);
-var path = new Path([pathBefore, pathSeg, pathAfter]);
+class LineTrack{
+    constructor(attachmentPoint){
+        var points = linePoints();
+        var lineAttach = points[0];
+        var dX = attachmentPoint.x - lineAttach.x;
+        var dY = attachmentPoint.y - lineAttach.y;
+        var delta = new Vec2(dX,dY);
+        // shift to match attachment point
+        for(var i = 0; i < points.length; i++){
+            points[i].addLocal(delta);
+        }
+        this.track = new TrackPart(points,Interpolator.linear,false);
+        this.attachmentPoint = attachmentPoint;
+        this.anchorPoint = points[points.length-2];
+    }
+}
+
+var canvas = document.getElementById("canvas");
+var gc = canvas.getContext("2d");
+var keyboard = new Keyboard();
+keyboard.listenForEvents();
+
+var path = new Path([
+    new LineTrack(new Vec2(50,canvas.height/2))
+]);
 
 function drawCircle(point, radius) {
     gc.arc(point.x, point.y, radius, 0, Math.PI * 2, false);
@@ -368,17 +339,17 @@ function drawCatmullRomInterpolation(points, color) {
     gc.stroke();
 }
 
-function drawWrappingPath() {
-    drawPath(pathSeg.circularList.elements, "purple");
-    drawLinearInterpolation(pathSeg.circularList.elements, "yellow");
-    drawCatmullRomInterpolation(pathSeg.circularList.elements, "orange");
+function drawWrappingPath(path) {
+    drawPath(path.circularList.elements, "purple");
+    drawLinearInterpolation(path.circularList.elements, "yellow");
+    drawCatmullRomInterpolation(path.circularList.elements, "orange");
 
     // draw points of intrest
-    drawPoint(pathSeg.splineHelperForward, "pink");
-    drawPoint(pathSeg.targetForward, "blue");
-    drawPoint(pathSeg.targetBehind, "green");
-    drawPoint(pathSeg.splineHelperBehind, "red");
-    drawPoint(pathSeg.currentPoint, "white");
+    drawPoint(path.splineHelperForward, "pink");
+    drawPoint(path.targetForward, "blue");
+    drawPoint(path.targetBehind, "green");
+    drawPoint(path.splineHelperBehind, "red");
+    drawPoint(path.currentPoint, "white");
 }
 
 function drawRegPath(path) {
@@ -393,6 +364,7 @@ function drawRegPath(path) {
     drawPoint(path.splineHelperForward, "pink");
     drawPoint(path.currentPoint, "white");
 }
+var next = false;
 
 function mainLoop() {
     gc.strokeStyle = "black";
@@ -403,12 +375,32 @@ function mainLoop() {
     } else if (keyboard.isDown(KeyCode.DOWN_ARROW)) {
         path.backward();
     }
+    if (keyboard.isDown(KeyCode.P)) {
+        if (path.pathSegments.length < 2) {
+            console.log("added");
+            if (next) {
+                path.addTrack(new LineTrack(path.pathSegments[path.pathSegments.length-1].anchorPoint));
+            } else {
+                path.addTrack(new CircleTrack(path.pathSegments[path.pathSegments.length-1].anchorPoint));
+                next = true;
+            }
+        }
+    }
 
-    drawWrappingPath();
+    //  drawWrappingPath();
 
-    drawRegPath(pathBefore);
+    // drawRegPath(pathBefore);
 
-    drawRegPath(pathAfter);
+    //  drawRegPath(pathAfter);
+
+    console.log("pathsNum = " + path.pathSegments.length);
+    for (var i = 0; i < path.pathSegments.length; i++) {
+        if (path.pathSegments[i].track.isWrapping) {
+            drawWrappingPath(path.pathSegments[i].track);
+        } else {
+            drawRegPath(path.pathSegments[i].track);
+        }
+    }
 }
 
 setInterval(mainLoop, 1000 / 60);
