@@ -300,6 +300,10 @@ function clamp(min,max,val){
     return Math.max(min,Math.min(val,max));
 }
 
+function toRad(degs) {
+    return degs * (Math.PI / 180);
+}
+
 /* args == two xy pairs */
 function distSqrd(p0, p1) {
     var dx = p1.x - p0.x;
@@ -348,4 +352,62 @@ function circleBoxCollision(p0, r0, p1, rectBounds) {
         return true;
     }
     return false;
+}
+
+class CircularList {
+    constructor(defaultElements = []) {
+        this.elements = defaultElements;
+        this.pointer = 0;
+    }
+
+    /* circular list methods  */
+    next() {
+        this.pointer = (this.pointer + 1 > this.elements.length - 1) ? 0 : this.pointer + 1;
+        return this.elements[this.pointer];
+    }
+    previous() {
+        this.pointer = (this.pointer - 1 < 0) ? this.elements.length - 1 : this.pointer - 1;
+        return this.elements[this.pointer];
+    }
+
+    /* facade for javascript array methods */
+    push(element) {
+        return this.elements.push(element);
+    }
+
+    pop() {
+        return this.elements.pop();
+    }
+
+    get(index) {
+        return this.elements[index];
+    }
+
+    shift() {
+        return this.elements.shift();
+    }
+
+    unshift(element) {
+        return this.elements.unshift(element);
+    }
+
+    indexOf(element) {
+        return this.elements.indexOf(element);
+    }
+
+    splice(start, deleteCount) {
+        return this.elements.splice(start, deleteCount);
+    }
+
+    insert(index, elemnent) {
+        return this.elements.splice(index, 0, elemnent);
+    }
+
+    slice(start, end) {
+        return this.elements.slice(start, end);
+    }
+
+    len() {
+        return this.elements.length;
+    }
 }
