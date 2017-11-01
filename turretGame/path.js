@@ -1,56 +1,18 @@
-/*function fillPathDiag() {
-    var points = [];
-    var len = Math.min(canvas.height, canvas.width);
-    for (var i = 40; i <= len - 40; i += len / 5) {
-        points.push(new Vec2(i, i));
-    }
-    return points;
-}
-
-function fillPathCircle() {
-    var points = [];
-    for (var i = 0; i < 360; i += 60) {
-        var rad = toRad(i);
-        var radius = 200;
-        var nX = (canvas.width / 2) + (radius * Math.cos(rad));
-        var nY = (canvas.height / 2) + (radius * Math.sin(rad));
-        points.push(new Vec2(nX, nY));
-    }
-    return points;
-}
-
-function eqTrianglePath(halfHeight = 1, centerPoint = Vec2) {
-    var points = [
-        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(0)).addLocal(centerPoint),
-        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(120)).addLocal(centerPoint),
-        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(240)).addLocal(centerPoint),
-    ];
-    return points;
-}
-
-function rectanglePath(halfWidth = 1, halfHeight = 1, centerPoint = Vec2) {
-    // clockwise
-    var points = [
-        new Vec2(-halfWidth, -halfHeight).addLocal(centerPoint),
-        new Vec2(-halfWidth, halfHeight).addLocal(centerPoint),
-        new Vec2(halfWidth, halfHeight).addLocal(centerPoint),
-        new Vec2(halfWidth, -halfHeight).addLocal(centerPoint),
-    ]
-    return points;
-} */
 class Path {
     constructor(pathSegments = []) {
         this.pathSegments = pathSegments;
         this.currentPath = pathSegments[0];
 
-       this.transitionPoint = this.currentPath.attachmentPoint;
+        //  this.transitionPoint = this.currentPath.attachmentPoint;
+        this.transitionPoint = this.currentPath.linkForward;
     }
-    addTrack(track){
+    addTrack(track = LinkingTrackPart) {
         this.pathSegments.push(track);
-        this.transitionPoint = track.attachmentPoint;
+        //  this.transitionPoint = track.attachmentPoint;
+        this.transitionPoint = track.linkBehind;
     }
 
-    movePath(isForward){
+    movePath(isForward) {
         var newIndx = this.pathSegments.indexOf(this.currentPath);
         newIndx += (isForward) ? 1 : -1;
         if (newIndx >= this.pathSegments.length || newIndx < 0) {
@@ -63,22 +25,20 @@ class Path {
         }
     }
 
+    hitTransition() {
+        return distSqrd(this.currentPath.currentPoint, this.transitionPoint) < 1;
+    }
+
     forward() {
-        this.currentPath.track.forward();
-        // no valid point so just return
-        if (this.transitionPoint == undefined) return;
-        // essentially we check if we collide with the transition point
-        if (distSqrd(this.currentPath.track.currentPoint, this.transitionPoint) < 1) {
+        this.currentPath.forward();
+        if (this.transitionPoint != undefined && this.hitTransition()) {
             this.movePath(true);
         }
     }
 
     backward() {
-        this.currentPath.track.backward();
-        // no valid point so just return
-        if (this.transitionPoint == undefined) return;
-        // essentially we check if we collide with the transition point
-        if (distSqrd(this.currentPath.track.currentPoint, this.transitionPoint) < 1) {
+        this.currentPath.backward();
+        if (this.transitionPoint != undefined && this.hitTransition()) {
             this.movePath(false);
         }
     }
@@ -219,7 +179,7 @@ class TrackPart {
     }
 }
 
-function circlePoints(){
+function circlePoints() {
     var points = [];
     for (var i = 0; i < 360; i += 60) {
         var rad = toRad(i + 180);
@@ -231,46 +191,75 @@ function circlePoints(){
     return points;
 }
 
-function linePoints(){
+function linePoints() {
     var points = [];
-    points.push(new Vec2(0,0));
+    points.push(new Vec2(0, 0));
     for (var i = 0; i < 5; i++) {
         points.push(points[points.length - 1].add(new Vec2(25, 0)));
     }
     return points;
 }
 
-class CircleTrack{
-    constructor(attachmentPoint){
-        var points = circlePoints();
-        var circleAttach = points[0];
-        var dX = attachmentPoint.x - circleAttach.x;
-        var dY = attachmentPoint.y - circleAttach.y;
-        var delta = new Vec2(dX,dY);
-        // shift to match attachment point
-        for(var i = 0; i < points.length; i++){
-            points[i].addLocal(delta);
-        }
-        this.track = new TrackPart(points,Interpolator.catmullRom,true);
-        this.attachmentPoint = attachmentPoint;
-        this.anchorPoint = points[3];
+function eqTrianglePoints(halfHeight = 1) {
+    var points = [
+        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(0)),
+        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(120)),
+        Vec2.rotateLocalV(new Vec2(halfHeight, 0), toRad(240)),
+    ];
+    return points;
+}
+
+function rectanglePoints(halfWidth = 1, halfHeight = 1) {
+    // clockwise
+    var points = [
+        new Vec2(-halfWidth, -halfHeight),
+        new Vec2(-halfWidth, halfHeight),
+        new Vec2(halfWidth, halfHeight),
+        new Vec2(halfWidth, -halfHeight),
+    ]
+    return points;
+}
+
+class LinkingTrackPart extends TrackPart {
+    constructor(points, interpolationMethod, isWrapping, linkBehind, linkForward) {
+        super(points, interpolationMethod, isWrapping);
+        this.linkBehind = linkBehind;
+        this.linkForward = linkForward;
     }
 }
 
-class LineTrack{
-    constructor(attachmentPoint){
-        var points = linePoints();
-        var lineAttach = points[0];
-        var dX = attachmentPoint.x - lineAttach.x;
-        var dY = attachmentPoint.y - lineAttach.y;
-        var delta = new Vec2(dX,dY);
-        // shift to match attachment point
-        for(var i = 0; i < points.length; i++){
-            points[i].addLocal(delta);
+class TrackBuilder {
+    static buildCircle() {
+        var points = circlePoints();
+        var linkBehind = points[0];
+        var linkForward = points[3];
+        return new LinkingTrackPart(points, Interpolator.catmullRom, true, linkBehind, linkForward);
+    }
+
+    static shiftTrack(track, shift) {
+        for (var i = 0; i < track.points.length; i++) {
+            track.points[i].addLocal(shift);
         }
-        this.track = new TrackPart(points,Interpolator.linear,false);
-        this.attachmentPoint = attachmentPoint;
-        this.anchorPoint = points[points.length-2];
+        return track;
+    }
+
+    static buildHoizontalLine() {
+        var points = linePoints();
+        var linkBehind = points[0];
+        var linkForward = points[points.length - 1];
+        return new LinkingTrackPart(points, Interpolator.linear, false, linkBehind, linkForward);
+    }
+
+    static linkBToA(linkingTrackB = LinkingTrackPart, linkingTrackA = LinkingTrackPart) {
+        // tracks are built onto origin so we need to move them
+        var dX = linkingTrackA.linkForward.x - linkingTrackB.linkBehind.x;
+        var dY = linkingTrackA.linkForward.y - linkingTrackB.linkBehind.y;
+        var delta = new Vec2(dX, dY);
+        for (var i = 0; i < linkingTrackB.points.length; i++) {
+            linkingTrackB.points[i].addLocal(delta);
+        }
+        // attach!
+        linkingTrackB.linkForward = linkingTrackA.linkBehind;
     }
 }
 
@@ -280,7 +269,7 @@ var keyboard = new Keyboard();
 keyboard.listenForEvents();
 
 var path = new Path([
-    new LineTrack(new Vec2(50,canvas.height/2))
+    TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
 ]);
 
 function drawCircle(point, radius) {
@@ -364,7 +353,6 @@ function drawRegPath(path) {
     drawPoint(path.splineHelperForward, "pink");
     drawPoint(path.currentPoint, "white");
 }
-var next = false;
 
 function mainLoop() {
     gc.strokeStyle = "black";
@@ -378,27 +366,18 @@ function mainLoop() {
     if (keyboard.isDown(KeyCode.P)) {
         if (path.pathSegments.length < 2) {
             console.log("added");
-            if (next) {
-                path.addTrack(new LineTrack(path.pathSegments[path.pathSegments.length-1].anchorPoint));
-            } else {
-                path.addTrack(new CircleTrack(path.pathSegments[path.pathSegments.length-1].anchorPoint));
-                next = true;
-            }
+            var trackA = path.pathSegments[path.pathSegments.length - 1];
+            var trackB = TrackBuilder.buildCircle();
+            TrackBuilder.linkBToA(trackB, trackA);
+            path.addTrack(trackB);
         }
     }
 
-    //  drawWrappingPath();
-
-    // drawRegPath(pathBefore);
-
-    //  drawRegPath(pathAfter);
-
-    console.log("pathsNum = " + path.pathSegments.length);
     for (var i = 0; i < path.pathSegments.length; i++) {
-        if (path.pathSegments[i].track.isWrapping) {
-            drawWrappingPath(path.pathSegments[i].track);
+        if (path.pathSegments[i].isWrapping) {
+            drawWrappingPath(path.pathSegments[i]);
         } else {
-            drawRegPath(path.pathSegments[i].track);
+            drawRegPath(path.pathSegments[i]);
         }
     }
 }
