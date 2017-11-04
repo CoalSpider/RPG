@@ -18,10 +18,10 @@ class TrackEvent {
         this.isOver = false;
     }
 
-    end(){
+    end() {
         this.ended = true;
         // clear spawnpoints
-        this.spawnPoints.splice(0,this.spawnPoints.length-1);
+        this.spawnPoints.splice(0, this.spawnPoints.length - 1);
     }
 
     update() {
@@ -31,13 +31,13 @@ class TrackEvent {
                 this.spawnPoints[i].spawnEnemy();
             }
         }
-        if(this.body.hp <= 0){
+        if (this.body.hp <= 0) {
             this.end();
         }
     }
 }
 
-function getLevel1(){
+function getLevel1() {
     var track = new Track([
         TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
         TrackBuilder.buildHoizontalLine(),
@@ -57,17 +57,17 @@ function getLevel1(){
 
     var center = computeCenterOfPoints(track.parts[3].points);
     var body = EntityBuilder.buildDestroyEventBody(center);
-    
-    var position1 = body.position.add(new Vec2(0,0));
-    var position2 = body.position.add(new Vec2(-0,0));
-    var position3 = body.position.add(new Vec2(0,-0));
+
+    var position1 = body.position.add(new Vec2(0, 0));
+    var position2 = body.position.add(new Vec2(-0, 0));
+    var position3 = body.position.add(new Vec2(0, -0));
 
     var event1 = new TrackEvent(
         body,
         [
-            new Spawner(position1,999,2000,{runner:0.5,chaser:0.5}),
-            new Spawner(position2,999,2000,{runner:0.5,chaser:0.5}),
-            new Spawner(position3,999,2000,{runner:0.5,chaser:0.5}),
+            new Spawner(position1, 999, 2000, { runner: 0.5, chaser: 0.5 }),
+            new Spawner(position2, 999, 2000, { runner: 0.5, chaser: 0.5 }),
+            new Spawner(position3, 999, 2000, { runner: 0.5, chaser: 0.5 }),
         ],
     )
 
@@ -76,33 +76,33 @@ function getLevel1(){
     return track;
 }
 
-function isOutOfBounds(position=Vec2){
+function isOutOfBounds(position = Vec2) {
     var p = position.add(camera);
-    return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height; 
+    return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height;
 }
 
-function update(){
+function update() {
     // update player
     player.update(track);
 
     // update track events
-    for(var i = 0; i < track.parts.length; i++){
-        for(var j = 0; j < track.parts[i].events.length; j++){
+    for (var i = 0; i < track.parts.length; i++) {
+        for (var j = 0; j < track.parts[i].events.length; j++) {
             track.parts[i].events[j].update();
         }
     }
 
     // update enemies
-    for(var i = 0; i < enemies.length; i++){
+    for (var i = 0; i < enemies.length; i++) {
         enemies[i].update();
-        if(isOutOfBounds(enemies[i].position)){
-            enemies.splice(i,1);
+        if (isOutOfBounds(enemies[i].position)) {
+            enemies.splice(i, 1);
             i--;
         }
     }
 
     // update bullets
-    for(var i = 0; i < bullets.length; i++){
+    for (var i = 0; i < bullets.length; i++) {
         bullets[i].update();
         if (isOutOfBounds(bullets[i].position)) {
             bullets.splice(i, 1);
@@ -111,19 +111,19 @@ function update(){
     }
 }
 
-function checkCollision(){
+function checkCollision() {
     // enemy bullet check
-    enemyLoop: for(var i = 0; i < enemies.length; i++){
+    enemyLoop: for (var i = 0; i < enemies.length; i++) {
         var e = enemies[i];
-        bulletLoop: for(var j = 0; j < bullets.length; j++){
+        bulletLoop: for (var j = 0; j < bullets.length; j++) {
             var b = bullets[j];
-            var collide = circleCircleCollision(b.position, b.bounds.radius+2, e.position, e.bounds.radius);
-            if(collide){
-                bullets.splice(j,1);
+            var collide = circleCircleCollision(b.position, b.bounds.radius + 2, e.position, e.bounds.radius);
+            if (collide) {
+                bullets.splice(j, 1);
                 j--;
                 e.hp -= 1;
-                if(e.hp <= 0){
-                    enemies.splice(i,1);
+                if (e.hp <= 0) {
+                    enemies.splice(i, 1);
                     i--;
                     continue enemyLoop;
                 }
@@ -132,7 +132,7 @@ function checkCollision(){
     }
 
     // player enemy check
-    for(var i = 0; i < enemies.length; i++){
+    for (var i = 0; i < enemies.length; i++) {
         var e = enemies[i];
         var collide = circleBoxCollision(e.position, e.bounds.radius, player.position, player.bounds);
         if (collide) {
@@ -145,6 +145,17 @@ function checkCollision(){
 
 function setCamera() {
     camera.multLocal(0).subLocal(cameraDefault).subLocal(track.current.currentPoint);
+}
+
+function checkIfPlayerHasWon() {
+    var levelIndx = track.parts.indexOf(track.current);
+    // if were on the last track
+    if (levelIndx == track.parts.length - 1) {
+        // if all events are finished
+        if (track.current.events.length == 0) {
+            playerHasWon = true;
+        }
+    }
 }
 
 // set up keyboard
@@ -161,93 +172,40 @@ var bullets = [];
 var track = getLevel1();
 var player = new TurretBase(track, track.current.currentPoint);
 
-function mainLoop() {
-    update();
-    checkCollision();
-
-    setCamera();
-    
-    // renderer.js draw()
-    draw();
-}
-
-setInterval(mainLoop, 1000 / 60);
-
-/*
-player.maxHP = 10;
-player.hp = 10;
-
-var nextLevelScreen = false;
-var nextLevelDelay = 3000;
-var endLevelTime = 0;
 var playerHasWon = false;
-function update() {
-    var spawnsLeft = 0;
-    for (var i = 0, j = currentLevel.spawnPoints.length; i < j; i++) {
-        var spawner = currentLevel.spawnPoints[i];
-        spawnsLeft += (spawner.spawnMax - spawner.spawnCount);
-        spawner.spawnEnemy();
-    }
-    if (spawnsLeft <= 0 && enemies.length <= 0) {
-        var newIndx = levels.indexOf(currentLevel) + 1;
-        if (newIndx >= levels.length) {
-            playerHasWon = true;
-            return;
-        }
-        currentLevel = levels[newIndx];
-        player.path = currentLevel.path;
-        bullets.splice(0, bullets.length);
-        nextLevelScreen = true;
-        endLevelTime = Date.now();
-        updatePlayer();
-    } else {
-        updatePlayer();
-        updateBullets();
-        updateEnemies();
-        collisionEnemyBullet();
-        collisionEnemyPlayer();
-    }
-}
 function resetGame() {
     player.hp = player.maxHP;
     enemies.splice(0, enemies.length);
     bullets.splice(0, bullets.length);
-    currentLevel = levels[0];
-    player.path = currentLevel.path;
+    track = getLevel1();
     playerHasWon = false;
 }
 
-function mainLoop() {
-    if (playerHasWon) {
-        var cont = confirm("Replay?");
-        if (cont) {
-            resetGame();
-        } else {
-            resetGame();
-            showStartWindow();
-        }
-    }
-    if (player.hp <= 0) {
-        var cont = confirm("Continue?");
-        if (cont) {
-            resetGame();
-        } else {
-            resetGame();
-            showStartWindow();
-        }
+function showConfirmDialog(msg) {
+    var cont = confirm(msg);
+    if (!cont) {
+        resetGame();
+        showStartWindow();
     } else {
-        if (nextLevelScreen == false) {
-            update();
-            draw();
-        } else {
-            if (Date.now() - endLevelTime >= nextLevelDelay) {
-                nextLevelScreen = false;
-            } else {
-                drawNextLevelScreen();
-            }
-        }
+        resetGame();
     }
 }
+
+function mainLoop() {
+    checkIfPlayerHasWon();
+    if (playerHasWon) {
+        showConfirmDialog("You Won! Replay?");
+    } else if (player.hp <= 0) { // if player has died
+        showConfirmDialog("You Died! Continue?")
+    } else { // play game
+        update();
+        checkCollision();
+        setCamera();
+        // renderer.js draw()
+        draw();
+    }
+}
+
 var interval;
 function launchGame() {
     canvas.removeEventListener("click", clickListener, false);
@@ -255,8 +213,7 @@ function launchGame() {
     clearInterval(interval);
     // calls 60 times a second
     interval = setInterval(mainLoop, 1000 / 60);
-    currentLevel = levels[0];
-    player.path = currentLevel.path;
+    track = getLevel1();
 }
 class EntryScreenButton {
     constructor(x, y, width, height) {
@@ -311,6 +268,7 @@ function mousemoveListener(evt) {
 }
 
 function showStartWindow() {
+    clearInterval(interval);
     canvas.addEventListener("click", clickListener, false);
     canvas.addEventListener("mousemove", mousemoveListener, false);
     clearInterval(interval);
@@ -318,6 +276,5 @@ function showStartWindow() {
 }
 
 showStartWindow();
-*/
 
 
