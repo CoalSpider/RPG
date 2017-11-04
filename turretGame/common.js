@@ -140,7 +140,6 @@ class Point {
         this.y = y;
     }
 }
-
 class Interpolator {
     constructor() { }
 
@@ -150,10 +149,11 @@ class Interpolator {
      * or
      * result = p1*(1-mu) + p2*mu;
      */
+    // if mu == 0
     static linear(p1, p2, percent) {
         var nX = p1.x + percent * (p2.x - p1.x);
         var nY = p1.y + percent * (p2.y - p1.y);
-        return new Vec2(nX, nY);
+       return new Vec2(nX, nY);
     }
 
     static normalizedLinear(p1, p2, percent) {
@@ -352,6 +352,33 @@ function circleBoxCollision(p0, r0, p1, rectBounds) {
         return true;
     }
     return false;
+}
+
+function computeCenterOfPoints(points=[]){
+    var centroid = new Vec2(0,0);
+    var signedArea = 0.0;
+    var x0 = 0.0;
+    var y0 = 0.0;
+    var x1 = 0.0;
+    var y1 = 0.0;
+    var a = 0.0;
+    var len = points.length;
+    for(var i = 0; i < len; i++){
+        x0 = points[i].x;
+        y0 = points[i].y;
+        x1 = points[(i+1) % len].x;
+        y1 = points[(i+1) % len].y;
+        a = x0*y1 - x1*y0;
+        signedArea += a;
+        centroid.x += (x0 + x1)*a;
+        centroid.y += (y0 + y1)*a;
+    }
+
+    signedArea *= 0.5;
+    centroid.x /= (6.0*signedArea);
+    centroid.y /= (6.0*signedArea);
+
+    return centroid;
 }
 
 class CircularList {

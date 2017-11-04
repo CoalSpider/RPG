@@ -339,6 +339,19 @@ class EntityBuilder {
         }
         return new Amalgamate(data, target);
     }
+
+    static buildDestroyEventBody(position){
+        // destroyEvent
+        var data = {
+            id: -999,
+            position: position,
+            bounds: new CircleBounds(50),
+            velocity: new Vec2(0,0),
+            maxHP: 100,
+            hp: 100,
+        }
+        return new Entity(data);
+    }
 }
 var RatioTable = {
     runner: 0,
@@ -405,7 +418,7 @@ class Spawner {
 }
 
 class TurretBase extends Entity {
-    constructor(path = Path, position) {
+    constructor(position) {
         super({
             id: ENTITY_ID.PLAYER.value,
             position: position,
@@ -413,23 +426,22 @@ class TurretBase extends Entity {
             maxHP: 100,
             hp: 100,
         });
-        this.path = path;
         this.barrel = new Barrel(this);
         this.fireTime = Date.now();
     }
 
-    update() {
+    update(track) {
         if (keyBoard.isDown(KeyCode.LEFT_ARROW)) {
             this.bounds.angleRad -= 0.05;
         }
         if (keyBoard.isDown(KeyCode.RIGHT_ARROW)) {
             this.bounds.angleRad += 0.05;
         }
-        if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
-            this.path.backward();
-        }
         if (keyBoard.isDown(KeyCode.UP_ARROW)) {
-            this.path.forward();
+            track.forward();
+        }
+        if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
+            track.backward();
         }
         if (keyBoard.isDown(KeyCode.W)) {
             if (Date.now() - this.fireTime > 100) {
@@ -437,7 +449,7 @@ class TurretBase extends Entity {
                 this.fireTime = Date.now();
             }
         }
-        this.position = this.path.currentPoint;
+        this.position = track.current.currentPoint;
 
         this.barrel.update();
     }

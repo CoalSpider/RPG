@@ -1,4 +1,4 @@
-
+var camera = new Vec2(0,0);
 
 function drawUI() {
     var ratio = Math.max(0, player.hp / player.maxHP);
@@ -50,8 +50,8 @@ function drawBounds(position, bounds) {
 function drawHPBar(entity, color, hpColor) {
     var hp = entity.hp;
     var maxHP = entity.maxHP;
-    var x = entity.position.x;
-    var y = entity.position.y;
+    var x = entity.position.x + camera.x;
+    var y = entity.position.y + camera.y;
     gc.beginPath();
     gc.fillStyle = hpColor;
     gc.arc(x, y, entity.bounds.radius-1, 0, Math.PI * 2);
@@ -60,14 +60,14 @@ function drawHPBar(entity, color, hpColor) {
     gc.beginPath();
     gc.fillStyle = color;
     var ratio = hp / maxHP;
-    // pie slice style
-    /*
-    gc.moveTo(x,y);
-    gc.arc(x,y, 9, 0, Math.PI * 2 * ratio, false);
-    gc.lineTo(x,y); 
-    */
-    // energy style
-    gc.arc(x, y, ratio * (entity.bounds.radius), 0, Math.PI * 2, false);
+    
+    if(maxHP > 50){// pie slice style
+        gc.moveTo(x,y);
+        gc.arc(x,y, entity.bounds.radius, 0, Math.PI * 2 * ratio, false);
+        gc.lineTo(x,y); 
+    } else { // energy style
+        gc.arc(x, y, ratio * (entity.bounds.radius), 0, Math.PI * 2, false);
+    }
     gc.fill();
     gc.closePath();
 }
@@ -84,7 +84,7 @@ function drawBossAmalgamate(boss){
     var parts = boss.parts;
     for(var i = 0,j=parts.length; i < j; i++){
         var e = parts[i];
-        drawBounds(e.position,e.bounds);
+        drawBounds(e.position.add(camera),e.bounds);
         if(e.hp != undefined){
             drawHPBar(e, color, hpColor);
         }
@@ -92,9 +92,9 @@ function drawBossAmalgamate(boss){
 }
 
 function drawEnemies() {
-    for (var i = 0, j = enemies.length; i < j; i++) {
+    for (var i = 0; i < enemies.length; i++) {
         var e = enemies[i];
-        var pos = e.position;
+        var pos = e.position.add(camera);
         var bounds = e.bounds;
         var hpColor = undefined;
         var color = undefined;
@@ -109,7 +109,7 @@ function drawEnemies() {
             case 7: color = "pink"; hpColor = "black"; break;
             case 8: color = "pink"; hpColor = "black"; break;
             case 100: drawBossAmalgamate(e); color="black";hpColor="grey";break;
-            default: throw new Error("unknown entity");
+            default: color="black",hpColor="white";break;
         }
         gc.strokeStyle = color;
         drawBounds(pos, bounds);
@@ -121,38 +121,36 @@ function drawEnemies() {
 
 function drawBullets() {
     gc.strokeStyle = "black";
-    for (var i = 0, j = bullets.length; i < j; i++) {
+    for (var i = 0; i < bullets.length; i++) {
         var b = bullets[i];
-        var x = b.position.x;
-        var y = b.position.y;
-        drawBounds(b.position, b.bounds);
+        drawBounds(b.position.add(camera), b.bounds);
     }
 }
 
-function drawPath() {
-    gc.beginPath();
+function drawTrack() {
     gc.strokeStyle = "purple";
-    // for (var i = 0; i < path.points.length; i++) {
-    for (var i = 0; i < currentLevel.path.points.length; i++) {
-        //     var p = path.points[i];
-        var p = currentLevel.path.points[i];
-        gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
+    for(var i = 0; i < track.parts.length; i++){
+        gc.beginPath();
+        for(var j = 0; j < track.parts[i].points.length; j++){
+            var p = track.parts[i].points[j].add(camera);
+            gc.arc(p.x,p.y,4,0,Math.PI*2,false);
+        }
+        gc.stroke();
+        gc.closePath();
     }
-    gc.closePath();
-    gc.stroke();
 }
 
 function drawPlayer() {
     gc.strokeStyle = "black";
-    drawBounds(player.position, player.bounds);
-    drawBounds(player.barrel.position, player.barrel.bounds);
+    drawBounds(player.position.add(camera), player.bounds);
+    drawBounds(player.barrel.position.add(camera), player.barrel.bounds);
 }
 
 function draw() {
     clearCanvas();
     drawEnemies();
     drawBullets();
-    drawPath();
+    drawTrack();
     drawPlayer();
     drawUI();
 }

@@ -1,266 +1,187 @@
 class Level {
-    constructor(path = Path, spawnPoints) {
-        this.path = path;
+    constructor(track = Track, spawnPoints = []) {
+        this.track = track;
         this.spawnPoints = spawnPoints;
     }
 }
 
-var canvas = document.getElementById("canvas");
+class TrackEvent {
+    constructor(body = Entity, spawnPoints = []) {
+        this.body = body;
+        this.spawnPoints = spawnPoints;
+        this.started = false;
+        this.ended = false;
+    }
 
-var Level0_Test = new Level(
+    start() {
+        this.started = true;
+        this.isOver = false;
+    }
+
+    end(){
+        this.ended = true;
+        // clear spawnpoints
+        this.spawnPoints.splice(0,this.spawnPoints.length-1);
+    }
+
+    update() {
+        // if event has started and is not completed
+        if (this.started && !this.ended) {
+            for (var i = 0; i < this.spawnPoints.length; i++) {
+                this.spawnPoints[i].spawnEnemy();
+            }
+        }
+        if(this.body.hp <= 0){
+            this.end();
+        }
+    }
+}
+
+function getLevel1(){
+    var track = new Track([
+        TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildCircle(),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildCircle(),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildCircle(),
+    ]);
+
+    TrackBuilder.linkTracks(track.parts);
+
+    // event 1
+
+    var center = computeCenterOfPoints(track.parts[3].points);
+    var body = EntityBuilder.buildDestroyEventBody(center);
     
-);
+    var position1 = body.position.add(new Vec2(0,0));
+    var position2 = body.position.add(new Vec2(-0,0));
+    var position3 = body.position.add(new Vec2(0,-0));
 
-var Level1_Division = new Level(
-    // vertical line
-    new Path(
+    var event1 = new TrackEvent(
+        body,
         [
-            new Vec2(canvas.width / 2, 25),
-            new Vec2(canvas.width / 2, canvas.height - 25)
+            new Spawner(position1,999,2000,{runner:0.5,chaser:0.5}),
+            new Spawner(position2,999,2000,{runner:0.5,chaser:0.5}),
+            new Spawner(position3,999,2000,{runner:0.5,chaser:0.5}),
         ],
-        Interpolator.linear,
-        false,
-    ),
-    // list of spawners
-    [
-        new Spawner(
-            new Vec2(canvas.width / 4, canvas.height / 2),
-            10,
-            2000,
-            { runner: 1 }
-        ),
-        new Spawner(
-            new Vec2(canvas.width * (3 / 4), canvas.height / 2),
-            10,
-            2000,
-            { runner: 1 }
-        )
-    ]
-);
+    )
 
-var Level2_Horizon = new Level(
-    // horizontal line
-    new Path(
-        [
-            new Vec2(25, canvas.height / 2),
-            new Vec2(canvas.width - 25, canvas.height / 2)
-        ],
-        Interpolator.linear,
-        false
-    ),
-    // list of spawners
-    [
-        new Spawner(
-            new Vec2(canvas.width / 2, canvas.height / 4),
-            10,
-            2000,
-            { runner: 1 }
-        ),
-        new Spawner(
-            new Vec2(canvas.width / 2, canvas.height * (3 / 4)),
-            10,
-            2000,
-            { runner: 1 }
-        )
-    ]
-);
+    track.parts[3].events.push(event1);
 
-var Level3_Chase = new Level(
-    // square
-    new Path(
-        rectanglePath(
-            (canvas.width-50)/2,
-            (canvas.height-50)/2, 
-            new Vec2(canvas.width/2,canvas.height/2)
-        ),
-        Interpolator.linear,
-        true,
-    ),
-    // list of spawners
-    [
-        new Spawner(
-            new Vec2(canvas.width / 2, canvas.height / 2),
-            20,
-            2000,
-            { runner: 0.5, chaser: 0.5 }
-        ),
-    ]
-);
+    return track;
+}
 
-var Level4_SoFast = new Level(
-    // triangle
-    new Path(
-        eqTrianglePath(
-            (canvas.height/2),
-            new Vec2(canvas.width/2,canvas.height/2)
-        ),
-        Interpolator.linear,
-        true,
-    ),
-    // list of spawners
-    [
-        new Spawner(
-            new Vec2(canvas.width / 2, canvas.height / 2),
-            20,
-            2000,
-            { runner: 0.5, chaser: 0.10, darter: 0.40, }
-        ),
-    ]
-);
+function isOutOfBounds(position=Vec2){
+    var p = position.add(camera);
+    return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height; 
+}
 
-var Level5_Boss = new Level(
-    // circle
-    new Path(
-        fillPathCircle(),
-        Interpolator.catmullRom,
-        true,
-    ),
-    // list of spawners
-    [
-        new Spawner(
-            new Vec2(canvas.width / 2, canvas.height / 2),
-            1,
-            1000,
-            { amalgamate: 1.0}
-        ),
-    ]
-);
+function update(){
+    // update player
+    player.update(track);
 
-var levels = [
-    Level1_Division,
-    Level2_Horizon,
-    Level3_Chase,
-    Level4_SoFast,
-    Level5_Boss
-];
+    // update track events
+    for(var i = 0; i < track.parts.length; i++){
+        for(var j = 0; j < track.parts[i].events.length; j++){
+            track.parts[i].events[j].update();
+        }
+    }
 
-var gc = canvas.getContext("2d");
+    // update enemies
+    for(var i = 0; i < enemies.length; i++){
+        enemies[i].update();
+        if(isOutOfBounds(enemies[i].position)){
+            enemies.splice(i,1);
+            i--;
+        }
+    }
+
+    // update bullets
+    for(var i = 0; i < bullets.length; i++){
+        bullets[i].update();
+        if (isOutOfBounds(bullets[i].position)) {
+            bullets.splice(i, 1);
+            i--;
+        }
+    }
+}
+
+function checkCollision(){
+    // enemy bullet check
+    enemyLoop: for(var i = 0; i < enemies.length; i++){
+        var e = enemies[i];
+        bulletLoop: for(var j = 0; j < bullets.length; j++){
+            var b = bullets[j];
+            var collide = circleCircleCollision(b.position, b.bounds.radius+2, e.position, e.bounds.radius);
+            if(collide){
+                bullets.splice(j,1);
+                j--;
+                e.hp -= 1;
+                if(e.hp <= 0){
+                    enemies.splice(i,1);
+                    i--;
+                    continue enemyLoop;
+                }
+            }
+        }
+    }
+
+    // player enemy check
+    for(var i = 0; i < enemies.length; i++){
+        var e = enemies[i];
+        var collide = circleBoxCollision(e.position, e.bounds.radius, player.position, player.bounds);
+        if (collide) {
+            player.hp -= 1;
+            enemies.splice(i, 1);
+            i--;
+        }
+    }
+}
+
+function setCamera() {
+    camera.multLocal(0).subLocal(cameraDefault).subLocal(track.current.currentPoint);
+}
 
 // set up keyboard
 var keyBoard = new Keyboard();
 keyBoard.listenForEvents();
 
-var points = fillPathCircle();
-var path = new Path(points, Interpolator.catmullRom, true);
-var player = new TurretBase(path, new Vec2(canvas.width / 2, canvas.height / 2));
+var canvas = document.getElementById("canvas");
+var gc = canvas.getContext("2d");
+var cameraDefault = new Vec2(-canvas.width / 2, -canvas.height / 2);
+
+var enemies = [];
+var bullets = [];
+
+var track = getLevel1();
+var player = new TurretBase(track, track.current.currentPoint);
+
+function mainLoop() {
+    update();
+    checkCollision();
+
+    setCamera();
+    
+    // renderer.js draw()
+    draw();
+}
+
+setInterval(mainLoop, 1000 / 60);
+
+/*
 player.maxHP = 10;
 player.hp = 10;
-var bullets = [];
-var enemies = [];
-/*
-var spawner = new Spawner(
-    new Vec2(canvas.width / 2, canvas.height / 2),
-    50,
-    1000,
-    {runner:0.65,chaser:0.25,darter:0.10}
-); */
 
-function updatePlayer() {
-    player.update();
-}
-
-function updateBullets() {
-    for (var i = 0; i < bullets.length; i++) {
-        bullets[i].update();
-        var x = bullets[i].position.x;
-        var y = bullets[i].position.y;
-        if (x < 0 || y < 0 || x > canvas.width || y > canvas.height) {
-            bullets.splice(i, 1);
-            i -= 1;
-        }
-    }
-}
-function updateEnemies() {
-    for (var i = 0; i < enemies.length; i++) {
-        enemies[i].update();
-        var p = enemies[i].position;
-        if (p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height) {
-            enemies.splice(i, 1);
-            i--;
-        }
-        if(enemies[i].id == 100){
-            for(var j = 0; j < enemies.length; j++){
-                var ep = enemies[i].parts[j];
-                if (ep.position.x < 0 || ep.position.y < 0 || ep.position.x > canvas.width || ep.position.y > canvas.height) {
-                    enemies[i].parts.splice(j, 1);
-                    j--;
-                }
-            }
-        }
-    }
-}
-function collisionEnemyBullet() {
-    // brute force check every bullet agianst every enemy
-    bLoop:
-    for (var i = 0; i < bullets.length; i++) {
-        var b = bullets[i];
-        eLoop:
-        for (var j = 0; j < enemies.length; j++) {
-            var e = enemies[j];
-            // if were a multipart boss
-            if(e.id == 100){
-                pLoop:
-                for(var p = 0; p < e.parts.length; p++){
-                    var part = e.parts[p];
-                    var collide = 
-                    circleCircleCollision(b.position,4,part.position,10);
-                    if(collide){
-                        bullets.splice(bullets.indexOf(b),1);
-                        i -= 1;
-                        part.hp -= 1;
-                        if(part.hp <= 0){
-                            e.parts.splice(e.parts.indexOf(part),1);
-                            p -= 1;
-                        }
-                        continue bLoop;
-                    }
-                }
-            }
-            var collide = circleCircleCollision(b.position, 4, e.position, 10);
-            if (collide) {
-                bullets.splice(bullets.indexOf(b), 1);
-                e.hp -= 1;
-                if (e.hp <= 0) {
-                    enemies.splice(enemies.indexOf(e), 1);
-                    j -= 1;
-                }
-                i -= 1;
-                continue bLoop;
-            }
-        }
-    }
-}
-function collisionEnemyPlayer() {
-    // brute force check every enemy agianst the turret-base/player
-    for (var i = 0; i < enemies.length; i++) {
-        var e = enemies[i];
-        if(e.id == 100){
-            for(var p = 0; p < e.parts.length; p++){
-                var part = e.parts[p];
-                var collide = circleBoxCollision(part.position, part.bounds.radius, player.position, player.bounds);
-                if (collide) {
-                    player.hp -= 1;
-                    e.parts.splice(e.parts.indexOf(part), 1);
-                    p -= 1;
-                    // TODO: iframe
-                }
-            }
-        }
-        var collide = circleBoxCollision(e.position, e.bounds.radius, player.position, player.bounds);
-        if (collide) {
-            player.hp -= 1;
-            enemies.splice(enemies.indexOf(e), 1);
-            i -= 1;
-            // TODO: iframe
-        }
-    }
-}
 var nextLevelScreen = false;
 var nextLevelDelay = 3000;
 var endLevelTime = 0;
 var playerHasWon = false;
 function update() {
-    // spawner.spawnEnemy();
     var spawnsLeft = 0;
     for (var i = 0, j = currentLevel.spawnPoints.length; i < j; i++) {
         var spawner = currentLevel.spawnPoints[i];
@@ -287,7 +208,6 @@ function update() {
         collisionEnemyPlayer();
     }
 }
-
 function resetGame() {
     player.hp = player.maxHP;
     enemies.splice(0, enemies.length);
@@ -329,14 +249,13 @@ function mainLoop() {
     }
 }
 var interval;
-var currentLevel;
 function launchGame() {
     canvas.removeEventListener("click", clickListener, false);
     canvas.removeEventListener("mousemove", mousemoveListener, false);
     clearInterval(interval);
     // calls 60 times a second
     interval = setInterval(mainLoop, 1000 / 60);
-    currentLevel = levels[4];
+    currentLevel = levels[0];
     player.path = currentLevel.path;
 }
 class EntryScreenButton {
@@ -399,4 +318,6 @@ function showStartWindow() {
 }
 
 showStartWindow();
+*/
+
 

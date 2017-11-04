@@ -1,45 +1,50 @@
-class Path {
-    constructor(pathSegments = []) {
-        this.pathSegments = pathSegments;
-        this.currentPath = pathSegments[0];
 
-        //  this.transitionPoint = this.currentPath.attachmentPoint;
-        this.transitionPoint = this.currentPath.linkForward;
-    }
-    addTrack(track = LinkingTrackPart) {
-        this.pathSegments.push(track);
-        //  this.transitionPoint = track.attachmentPoint;
-        this.transitionPoint = track.linkBehind;
+class Track {
+    constructor(parts = []) {
+        this.parts = parts;
+        this.current = parts[0];
+
+        this.transitionPoint = this.current.linkForward;
     }
 
-    movePath(isForward) {
-        var newIndx = this.pathSegments.indexOf(this.currentPath);
+    moveTrack(isForward) {
+        var newIndx = this.parts.indexOf(this.current);
         newIndx += (isForward) ? 1 : -1;
-        if (newIndx >= this.pathSegments.length || newIndx < 0) {
-            // do nothing
+        for(var i = 0; i < this.current.events.length; i++){
+            if(this.current.events[i].ended==true){
+                this.current.events.splice(i,1);
+                i--;
+            }
+        }
+        console.log(this.current.events.length);
+        if(this.current.events.length > 0){
+            if(this.current.events[0].started==false)
+                this.current.events[0].start();
+                enemies.push(this.current.events[0].body);
         } else {
-            this.currentPath = this.pathSegments[newIndx];
-            if (this.pathSegments.length > 1) {
-                this.pathSegments.splice(0, 1);
+            if (newIndx < this.parts.length && newIndx >= 0) {
+                /** TODO: if event for track peice is not over dont move forward */
+                this.current = this.parts[newIndx];
+                this.transitionPoint = this.current.linkForward;
             }
         }
     }
 
     hitTransition() {
-        return distSqrd(this.currentPath.currentPoint, this.transitionPoint) < 1;
+        return distSqrd(this.current.currentPoint, this.transitionPoint) < 1;
     }
 
     forward() {
-        this.currentPath.forward();
+        this.current.forward();
         if (this.transitionPoint != undefined && this.hitTransition()) {
-            this.movePath(true);
+            this.moveTrack(true);
         }
     }
 
     backward() {
-        this.currentPath.backward();
+        this.current.backward();
         if (this.transitionPoint != undefined && this.hitTransition()) {
-            this.movePath(false);
+            this.moveTrack(false);
         }
     }
 }
@@ -47,11 +52,11 @@ class TrackPart {
     constructor(points = [], interpolationMethod, isWrapping = false) {
         if (isWrapping) {
             if (points.length < 4) {
-                throw new Error("wrapping path must be at least 4 points");
+                throw new Error("wrapping Track must be at least 4 points");
             }
         } else {
             if (points.length < 2) {
-                throw new Error("non wrapping path must be at least 2 points");
+                throw new Error("non wrapping Track must be at least 2 points");
             }
         }
         this.circularList = new CircularList(points);
@@ -62,7 +67,7 @@ class TrackPart {
 
         this.isWrapping = isWrapping;
 
-        // if theres no objective the path does not wrap from start to end
+        // if theres no objective the Track does not wrap from start to end
         if (this.isWrapping) {
             // we want the target forward to be indx 0
             this.circularList.pointer = this.circularList.len() - 2;
@@ -73,10 +78,10 @@ class TrackPart {
             this.splineHelperForward = this.circularList.next();
         } else {
             // add duplicate points so the player can appear at the end of
-            // the path but interpolation still works
+            // the Track but interpolation still works
             // shift end points a little so we can debug
-            this.circularList.unshift(this.circularList.get(0).sub(new Vec2(5, 5)));
-            this.circularList.push(this.circularList.get(this.circularList.len() - 1).add(new Vec2(5, 5)));
+            this.circularList.unshift(this.circularList.get(0).sub(new Vec2(0, 0)));
+            this.circularList.push(this.circularList.get(this.circularList.len() - 1).add(new Vec2(0, 0)));
 
             this.splineHelperBehind = this.circularList.get(0);
             this.targetBehind = this.circularList.get(1);
@@ -143,7 +148,6 @@ class TrackPart {
                 }
             }
         }
-
         this.setCurrentPoint();
     }
 
@@ -183,7 +187,7 @@ function circlePoints() {
     var points = [];
     for (var i = 0; i < 360; i += 60) {
         var rad = toRad(i + 180);
-        var radius = 150;
+        var radius = 200;
         var nX = (canvas.width / 2) + (radius * Math.cos(rad));
         var nY = (canvas.height / 2) + (radius * Math.sin(rad));
         points.push(new Vec2(nX, nY));
@@ -194,8 +198,8 @@ function circlePoints() {
 function linePoints() {
     var points = [];
     points.push(new Vec2(0, 0));
-    for (var i = 0; i < 5; i++) {
-        points.push(points[points.length - 1].add(new Vec2(25, 0)));
+    for (var i = 0; i < 4; i++) {
+        points.push(points[points.length - 1].add(new Vec2(100, 0)));
     }
     return points;
 }
@@ -225,6 +229,7 @@ class LinkingTrackPart extends TrackPart {
         super(points, interpolationMethod, isWrapping);
         this.linkBehind = linkBehind;
         this.linkForward = linkForward;
+        this.events = [];
     }
 }
 
@@ -236,11 +241,16 @@ class TrackBuilder {
         return new LinkingTrackPart(points, Interpolator.catmullRom, true, linkBehind, linkForward);
     }
 
-    static shiftTrack(track, shift) {
-        for (var i = 0; i < track.points.length; i++) {
-            track.points[i].addLocal(shift);
+    static shiftTrack(trackpart = LinkingTrackPart, shift = Vec2) {
+        for (var i = 0; i < trackpart.points.length; i++) {
+            trackpart.points[i].addLocal(shift);
         }
-        return track;
+
+        // rest interpolation points
+        trackpart.forward();
+        trackpart.backward();
+
+        return trackpart;
     }
 
     static buildHoizontalLine() {
@@ -259,21 +269,81 @@ class TrackBuilder {
             linkingTrackB.points[i].addLocal(delta);
         }
         // attach!
-        linkingTrackB.linkForward = linkingTrackA.linkBehind;
+        linkingTrackB.linkBehind = linkingTrackA.linkForward;
+
+        // rest interpolation points
+        linkingTrackB.forward();
+        linkingTrackB.backward();
+    }
+
+    static linkTracks(trackParts = []) {
+        for (var i = 1; i < trackParts.length; i++) {
+            TrackBuilder.linkBToA(trackParts[i], trackParts[i - 1]);
+        }
     }
 }
-
+/* TEST CODE DO NOT DELETE */
+/*
 var canvas = document.getElementById("canvas");
 var gc = canvas.getContext("2d");
 var keyboard = new Keyboard();
 keyboard.listenForEvents();
+var camera = new Vec2(-canvas.width / 2, -canvas.height / 2);
 
-var path = new Path([
+var track = new Track([
     TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildCircle(),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildCircle(),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildHoizontalLine(),
+    TrackBuilder.buildCircle(),
 ]);
 
+TrackBuilder.linkTracks(track.parts);
+
+camera = new Vec2(0, 0);
+
+function mainLoop() {
+    if (keyboard.isDown(KeyCode.UP_ARROW)) {
+        track.forward();
+    } else if (keyboard.isDown(KeyCode.DOWN_ARROW)) {
+        track.backward();
+    }
+
+    camera = new Vec2(-canvas.width / 2, -canvas.height / 2).addLocal(track.current.currentPoint);
+
+    clearScreen();
+    for (var i = 0; i < track.parts.length; i++) {
+        if (track.parts[i].isWrapping) {
+            drawWrappingTrack(track.parts[i]);
+        } else {
+            drawRegTrack(track.parts[i]);
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+function clearScreen() {
+    gc.strokeStyle = "black";
+    gc.fillStyle = "black";
+    gc.fillRect(0, 0, canvas.width, canvas.height);
+}
+
 function drawCircle(point, radius) {
-    gc.arc(point.x, point.y, radius, 0, Math.PI * 2, false);
+    gc.arc(point.x - camera.x, point.y - camera.y, radius, 0, Math.PI * 2, false);
 }
 
 function drawPoint(point, color) {
@@ -284,7 +354,7 @@ function drawPoint(point, color) {
     gc.closePath();
 }
 
-function drawPath(points, color) {
+function drawTrack(points, color) {
     gc.strokeStyle = color;
     gc.beginPath();
     for (var i = 0; i < points.length; i++) {
@@ -328,58 +398,30 @@ function drawCatmullRomInterpolation(points, color) {
     gc.stroke();
 }
 
-function drawWrappingPath(path) {
-    drawPath(path.circularList.elements, "purple");
-    drawLinearInterpolation(path.circularList.elements, "yellow");
-    drawCatmullRomInterpolation(path.circularList.elements, "orange");
+function drawWrappingTrack(track) {
+    drawTrack(track.circularList.elements, "purple");
+    // drawLinearInterpolation(track.circularList.elements, "yellow");
+    // drawCatmullRomInterpolation(track.circularList.elements, "orange");
 
     // draw points of intrest
-    drawPoint(path.splineHelperForward, "pink");
-    drawPoint(path.targetForward, "blue");
-    drawPoint(path.targetBehind, "green");
-    drawPoint(path.splineHelperBehind, "red");
-    drawPoint(path.currentPoint, "white");
+    drawPoint(track.splineHelperForward, "pink");
+    drawPoint(track.targetForward, "blue");
+    drawPoint(track.targetBehind, "green");
+    drawPoint(track.splineHelperBehind, "red");
+    drawPoint(track.currentPoint, "white");
 }
 
-function drawRegPath(path) {
-    drawPath(path.points, "white");
-    // drawLinearInterpolation(path.points,"yellow");
-    // drawCatmullRomInterpolation(path.points,"orange");
+function drawRegTrack(track) {
+    drawTrack(track.points, "white");
+    // drawLinearInterpolation(Track.points,"yellow");
+    // drawCatmullRomInterpolation(Track.points,"orange");
 
     // draw points of intrest
-    drawPoint(path.splineHelperBehind, "red");
-    drawPoint(path.targetBehind, "green");
-    drawPoint(path.targetForward, "blue");
-    drawPoint(path.splineHelperForward, "pink");
-    drawPoint(path.currentPoint, "white");
+    drawPoint(track.splineHelperBehind, "red");
+    drawPoint(track.targetBehind, "green");
+    drawPoint(track.targetForward, "blue");
+    drawPoint(track.splineHelperForward, "pink");
+    drawPoint(track.currentPoint, "white");
 }
 
-function mainLoop() {
-    gc.strokeStyle = "black";
-    gc.fillStyle = "black";
-    gc.fillRect(0, 0, canvas.width, canvas.height);
-    if (keyboard.isDown(KeyCode.UP_ARROW)) {
-        path.forward();
-    } else if (keyboard.isDown(KeyCode.DOWN_ARROW)) {
-        path.backward();
-    }
-    if (keyboard.isDown(KeyCode.P)) {
-        if (path.pathSegments.length < 2) {
-            console.log("added");
-            var trackA = path.pathSegments[path.pathSegments.length - 1];
-            var trackB = TrackBuilder.buildCircle();
-            TrackBuilder.linkBToA(trackB, trackA);
-            path.addTrack(trackB);
-        }
-    }
-
-    for (var i = 0; i < path.pathSegments.length; i++) {
-        if (path.pathSegments[i].isWrapping) {
-            drawWrappingPath(path.pathSegments[i]);
-        } else {
-            drawRegPath(path.pathSegments[i]);
-        }
-    }
-}
-
-setInterval(mainLoop, 1000 / 60);
+setInterval(mainLoop, 1000 / 60); */
