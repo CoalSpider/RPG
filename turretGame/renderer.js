@@ -1,4 +1,4 @@
-var camera = new Vec2(0,0);
+var camera = new Vec2(0, 0);
 
 function drawUI() {
     var ratio = Math.max(0, player.hp / player.maxHP);
@@ -54,17 +54,17 @@ function drawHPBar(entity, color, hpColor) {
     var y = entity.position.y + camera.y;
     gc.beginPath();
     gc.fillStyle = hpColor;
-    gc.arc(x, y, entity.bounds.radius-1, 0, Math.PI * 2);
+    gc.arc(x, y, entity.bounds.radius - 1, 0, Math.PI * 2);
     gc.fill();
     gc.closePath();
     gc.beginPath();
     gc.fillStyle = color;
     var ratio = hp / maxHP;
-    
-    if(maxHP > 50){// pie slice style
-        gc.moveTo(x,y);
-        gc.arc(x,y, entity.bounds.radius, 0, Math.PI * 2 * ratio, false);
-        gc.lineTo(x,y); 
+
+    if (maxHP > 50) {// pie slice style
+        gc.moveTo(x, y);
+        gc.arc(x, y, entity.bounds.radius, 0, Math.PI * 2 * ratio, false);
+        gc.lineTo(x, y);
     } else { // energy style
         gc.arc(x, y, ratio * (entity.bounds.radius), 0, Math.PI * 2, false);
     }
@@ -78,14 +78,14 @@ function clearCanvas() {
     gc.strokeRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawBossAmalgamate(boss){
+function drawBossAmalgamate(boss) {
     var color = "black";
     var hpColor = "grey";
     var parts = boss.parts;
-    for(var i = 0,j=parts.length; i < j; i++){
+    for (var i = 0, j = parts.length; i < j; i++) {
         var e = parts[i];
-        drawBounds(e.position.add(camera),e.bounds);
-        if(e.hp != undefined){
+        drawBounds(e.position.add(camera), e.bounds);
+        if (e.hp != undefined) {
             drawHPBar(e, color, hpColor);
         }
     }
@@ -108,8 +108,8 @@ function drawEnemies() {
             case 6: color = "pink"; hpColor = "black"; break;
             case 7: color = "pink"; hpColor = "black"; break;
             case 8: color = "pink"; hpColor = "black"; break;
-            case 100: drawBossAmalgamate(e); color="black";hpColor="grey";break;
-            default: color="black",hpColor="white";break;
+            case 100: drawBossAmalgamate(e); color = "black"; hpColor = "grey"; break;
+            default: color = "black", hpColor = "white"; break;
         }
         gc.strokeStyle = color;
         drawBounds(pos, bounds);
@@ -118,26 +118,109 @@ function drawEnemies() {
         }
     }
 }
+var bulletImg = new Image();
+bulletImg.src = "images/entry_screen_button2.png";
 
+function drawRotatedImage(image = Image, position = Vec2, angleDegs = 0, width = Number, height = Number) {
+    gc.translate(position.x, position.y);
+    gc.rotate(angleDegs);
+    gc.drawImage(image, -width / 2, -height / 2, width, height);
+    gc.rotate(-angleDegs);
+    gc.translate(-position.x, -position.y);
+}
 function drawBullets() {
-    gc.strokeStyle = "black";
+    //gc.strokeStyle = "black";
     for (var i = 0; i < bullets.length; i++) {
-        var b = bullets[i];
-        drawBounds(b.position.add(camera), b.bounds);
+        var radius = bullets[i].bounds.radius;
+        var pos = bullets[i].position.add(camera);
+        var angleDegs = bullets[i].angle * (180 / Math.PI);
+        drawRotatedImage(bulletImg, pos, toRad(angleDegs), radius * 4, radius * 2);
     }
 }
 
 function drawTrack() {
     gc.strokeStyle = "purple";
-    for(var i = 0; i < track.parts.length; i++){
-        gc.beginPath();
-        for(var j = 0; j < track.parts[i].points.length; j++){
-            var p = track.parts[i].points[j].add(camera);
-            gc.arc(p.x,p.y,4,0,Math.PI*2,false);
-        }
-        gc.stroke();
-        gc.closePath();
+    for (var i = 0; i < track.parts.length; i++) {
+        drawTrackOuter(track.parts[i]);
+        drawTrackInner(track.parts[i]);
+        if(track.parts[i].interpolationMethod==Interpolator.linear)
+            drawLinearInterpolation(track.parts[i]);
+        else
+            drawCatmullInterpolation(track.parts[i]);
     }
+}
+
+function drawLinearInterpolation(trackPart){
+    var pnts = trackPart.points;
+    gc.beginPath();
+    var shift = new Vec2(0,10);
+    for(var i = 0; i < pnts.length-1; i++){
+        var p1 = pnts[i].add(camera).addLocal(shift);
+        var p2 = pnts[i+1].add(camera).addLocal(shift);
+        var p3 = pnts[i].add(camera).subLocal(shift);
+        var p4 = pnts[i+1].add(camera).subLocal(shift);
+        for(var percent = 0; percent < 1; percent+=0.1){
+            var interpol = Interpolator.linear(p1,p2,percent);
+            var interpol2 = Interpolator.linear(p3,p4,percent);
+            gc.arc(interpol.x,interpol.y,2,0,Math.PI*2,false);
+            gc.arc(interpol2.x,interpol2.y,2,0,Math.PI*2,false);
+        }
+    }
+    gc.stroke();
+    gc.closePath();
+}
+
+function drawCatmullInterpolation(trackPart){
+    var pnts = trackPart.points;
+    gc.beginPath();
+    for(var i = 0; i < pnts.length; i++){
+        var i1 = (i-1 < 0) ? (i+pnts.length - 1) % pnts.length : (i - 1) % pnts.length;
+        var i2 = (i) % pnts.length;
+        var i3 = (i+1) % pnts.length;
+        var i4 = (i+2) % pnts.length;
+        var perpSlope = pnts[i3].sub(pnts[i2]);
+        /** TODO: change shift per interpolation */
+        perpSlope = new Vec2(-perpSlope.y,perpSlope.x);
+        var shift = perpSlope.normalize().mult(10);
+
+        var p1 = pnts[i1].add(camera).addLocal(shift);
+        var p2 = pnts[i2].add(camera).addLocal(shift);
+        var p3 = pnts[i3].add(camera).addLocal(shift);
+        var p4 = pnts[i4].add(camera).addLocal(shift);
+        
+        var p5 = pnts[i1].add(camera).subLocal(shift);
+        var p6 = pnts[i2].add(camera).subLocal(shift);
+        var p7 = pnts[i3].add(camera).subLocal(shift);
+        var p8 = pnts[i4].add(camera).subLocal(shift);
+        for(var percent = 0; percent < 1; percent+=0.05){
+            var interpol = Interpolator.catmullRom(p1,p2,p3,p4,percent);
+            var interpol2 = Interpolator.catmullRom(p5,p6,p7,p8,percent);
+            gc.arc(interpol.x,interpol.y,2,0,Math.PI*2,false);
+            gc.arc(interpol2.x,interpol2.y,2,0,Math.PI*2,false);
+        }
+    }
+    gc.stroke();
+    gc.closePath();
+}
+
+function drawTrackOuter(trackPart) {
+    gc.beginPath();
+    for (var j = 0; j < trackPart.points.length; j++) {
+        var p = trackPart.points[j].add(camera).subLocal(new Vec2(0, 10));
+        gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
+    }
+    gc.stroke();
+    gc.closePath();
+}
+
+function drawTrackInner(trackPart) {
+    gc.beginPath();
+    for (var j = 0; j < trackPart.points.length; j++) {
+        var p = trackPart.points[j].add(camera).addLocal(new Vec2(0, 10));
+        gc.arc(p.x, p.y, 4, 0, Math.PI * 2, false);
+    }
+    gc.stroke();
+    gc.closePath();
 }
 
 function drawPlayer() {

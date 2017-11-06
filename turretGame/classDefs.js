@@ -480,7 +480,9 @@ class Barrel extends Entity {
         var dx = Math.cos(this.bounds.angleRad) * 10;
         var dy = Math.sin(this.bounds.angleRad) * 10;
         var barrelEnd = this.getBarrelEnd();
-        bullets.push(new Bullet(barrelEnd, new Vec2(dx, dy)));
+        var bullet = new Bullet(barrelEnd, new Vec2(dx, dy));
+        bullet.angle = this.bounds.angleRad;
+        bullets.push(bullet);
     }
 
     update() {
@@ -495,7 +497,7 @@ class Bullet extends Entity {
         super({
             position: position,
             velocity: velocity,
-            bounds: new CircleBounds(4),
+            bounds: new CircleBounds(7),
         });
     }
 }
