@@ -138,65 +138,94 @@ function drawBullets() {
     }
 }
 
+var imgTrack = new Image();
+imgTrack.src = "images/track.png"
+var drawStuff = [];
+var animationShift = 0;
 function drawTrack() {
+    if(track.scrolling && keyBoard.isDown(KeyCode.UP_ARROW)){
+        animationShift -= 5;
+        animationShift = (animationShift < -60) ? 0 : animationShift;
+    }
     gc.strokeStyle = "purple";
     for (var i = 0; i < track.parts.length; i++) {
-        drawTrackOuter(track.parts[i]);
-        drawTrackInner(track.parts[i]);
-        if(track.parts[i].interpolationMethod==Interpolator.linear)
-            drawLinearInterpolation(track.parts[i]);
-        else
-            drawCatmullInterpolation(track.parts[i]);
+        if (drawStuff.length == track.parts.length) {
+            break;
+        }
+        var interpolation = track.parts[i].interpolationMethod;
+        if (interpolation == Interpolator.linear) {
+            drawStuff.push(calcImgPosLinear(track.parts[i].points));
+        } else if (interpolation == Interpolator.catmullRom) {
+            drawStuff.push(calcImgPosCatmull(track.parts[i].points));
+        }
+        /*   drawTrackOuter(track.parts[i]);
+           drawTrackInner(track.parts[i]);
+           if(track.parts[i].interpolationMethod==Interpolator.linear)
+               drawLinearInterpolation(track.parts[i]);
+           else
+               drawCatmullInterpolation(track.parts[i]); */
+    }
+    for (var i = 0; i < drawStuff.length; i++) {
+        for (var j = 0; j < drawStuff[i].length; j++) {
+            var pos = drawStuff[i][j].position.add(camera);
+            if(track.parts[i].interpolationMethod == Interpolator.linear){
+                if(track.scrolling){
+                    pos.addLocal(new Vec2(animationShift,0));
+                }
+            }
+            var rad = drawStuff[i][j].angleRad;
+            drawRotatedImage(imgTrack, pos, rad, imgTrack.width, imgTrack.height);
+        }
     }
 }
-
-function drawLinearInterpolation(trackPart){
+/*
+function drawLinearInterpolation(trackPart) {
     var pnts = trackPart.points;
     gc.beginPath();
-    var shift = new Vec2(0,10);
-    for(var i = 0; i < pnts.length-1; i++){
+    var shift = new Vec2(0, 10);
+    for (var i = 0; i < pnts.length - 1; i++) {
         var p1 = pnts[i].add(camera).addLocal(shift);
-        var p2 = pnts[i+1].add(camera).addLocal(shift);
+        var p2 = pnts[i + 1].add(camera).addLocal(shift);
         var p3 = pnts[i].add(camera).subLocal(shift);
-        var p4 = pnts[i+1].add(camera).subLocal(shift);
-        for(var percent = 0; percent < 1; percent+=0.1){
-            var interpol = Interpolator.linear(p1,p2,percent);
-            var interpol2 = Interpolator.linear(p3,p4,percent);
-            gc.arc(interpol.x,interpol.y,2,0,Math.PI*2,false);
-            gc.arc(interpol2.x,interpol2.y,2,0,Math.PI*2,false);
+        var p4 = pnts[i + 1].add(camera).subLocal(shift);
+        for (var percent = 0; percent < 1; percent += 0.1) {
+            var interpol = Interpolator.linear(p1, p2, percent);
+            var interpol2 = Interpolator.linear(p3, p4, percent);
+            gc.arc(interpol.x, interpol.y, 2, 0, Math.PI * 2, false);
+            gc.arc(interpol2.x, interpol2.y, 2, 0, Math.PI * 2, false);
         }
     }
     gc.stroke();
     gc.closePath();
 }
 
-function drawCatmullInterpolation(trackPart){
+function drawCatmullInterpolation(trackPart) {
     var pnts = trackPart.points;
     gc.beginPath();
-    for(var i = 0; i < pnts.length; i++){
-        var i1 = (i-1 < 0) ? (i+pnts.length - 1) % pnts.length : (i - 1) % pnts.length;
+    for (var i = 0; i < pnts.length; i++) {
+        var i1 = (i - 1 < 0) ? (i + pnts.length - 1) % pnts.length : (i - 1) % pnts.length;
         var i2 = (i) % pnts.length;
-        var i3 = (i+1) % pnts.length;
-        var i4 = (i+2) % pnts.length;
+        var i3 = (i + 1) % pnts.length;
+        var i4 = (i + 2) % pnts.length;
         var perpSlope = pnts[i3].sub(pnts[i2]);
-        /** TODO: change shift per interpolation */
-        perpSlope = new Vec2(-perpSlope.y,perpSlope.x);
+        // TODO: change shift per interpolation
+        perpSlope = new Vec2(-perpSlope.y, perpSlope.x);
         var shift = perpSlope.normalize().mult(10);
 
         var p1 = pnts[i1].add(camera).addLocal(shift);
         var p2 = pnts[i2].add(camera).addLocal(shift);
         var p3 = pnts[i3].add(camera).addLocal(shift);
         var p4 = pnts[i4].add(camera).addLocal(shift);
-        
+
         var p5 = pnts[i1].add(camera).subLocal(shift);
         var p6 = pnts[i2].add(camera).subLocal(shift);
         var p7 = pnts[i3].add(camera).subLocal(shift);
         var p8 = pnts[i4].add(camera).subLocal(shift);
-        for(var percent = 0; percent < 1; percent+=0.05){
-            var interpol = Interpolator.catmullRom(p1,p2,p3,p4,percent);
-            var interpol2 = Interpolator.catmullRom(p5,p6,p7,p8,percent);
-            gc.arc(interpol.x,interpol.y,2,0,Math.PI*2,false);
-            gc.arc(interpol2.x,interpol2.y,2,0,Math.PI*2,false);
+        for (var percent = 0; percent < 1; percent += 0.05) {
+            var interpol = Interpolator.catmullRom(p1, p2, p3, p4, percent);
+            var interpol2 = Interpolator.catmullRom(p5, p6, p7, p8, percent);
+            gc.arc(interpol.x, interpol.y, 2, 0, Math.PI * 2, false);
+            gc.arc(interpol2.x, interpol2.y, 2, 0, Math.PI * 2, false);
         }
     }
     gc.stroke();
@@ -221,7 +250,7 @@ function drawTrackInner(trackPart) {
     }
     gc.stroke();
     gc.closePath();
-}
+} */
 
 function drawPlayer() {
     gc.strokeStyle = "black";
@@ -229,11 +258,21 @@ function drawPlayer() {
     drawBounds(player.barrel.position.add(camera), player.barrel.bounds);
 }
 
+var playerBodyImg = new Image();
+playerBodyImg.src = "images/turretBody.png";
+var playerBarrelImg = new Image();
+playerBarrelImg.src = "images/turretBarrel.png";
 function draw() {
     clearCanvas();
+    bis.drawBackground();
     drawEnemies();
     drawBullets();
     drawTrack();
+    var width = player.bounds.halfWidth * 2;
+    var height = player.bounds.halfHeight * 2;
+    var angle = player.bounds.angleRad;
+    drawRotatedImage(playerBodyImg, player.position.add(camera), angle, width, height);
+    drawRotatedImage(playerBarrelImg, player.position.add(camera), angle, width, height);
     drawPlayer();
     drawUI();
 }

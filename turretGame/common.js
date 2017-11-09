@@ -353,6 +353,11 @@ function circleBoxCollision(p0, r0, p1, rectBounds) {
     }
     return false;
 }
+function angleBetween(p1=Vec2,p2=Vec2){
+    var dx = p2.x-p1.x;
+    var dy = p2.y-p1.y;
+    return Math.atan2(dy,dx);
+}
 
 function computeCenterOfPoints(points=[]){
     var centroid = new Vec2(0,0);

@@ -1,3 +1,66 @@
+class BackgroundImageScroller {
+    constructor(image = Image) {
+        this.image = image;
+        this.imageX = 0;
+        this.imageY = 0;
+        this.speed = 10;
+    }
+    // adds images leftward till background is filed
+    addLeft() {
+        var currWidth = Math.min(canvas.width - this.imageX, this.image.width);
+        var sx = 0;
+        var sy = 0;
+        var sWidth = currWidth;
+        var sHeight = this.image.height;
+        var dx = this.imageX;
+        var dy = this.imageY;
+        var dWidth = currWidth
+        var dHeight = this.image.height;
+        gc.drawImage(this.image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+        //      gc.strokeRect(dx - 2, dy, dWidth, dHeight);
+
+        while (dx > 0) {
+            currWidth = Math.min(dx, this.image.width);
+            sx = this.image.width - currWidth;
+            sWidth = currWidth;
+            dWidth = currWidth;
+            dx = dx - currWidth;
+            gc.drawImage(this.image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+            //        gc.strokeRect(dx, dy, currWidth, image.height);
+        }
+    }
+
+    // adds images rightward till background is filled
+    addRight() {
+        var currWidth = Math.min(canvas.width - this.imageX, this.image.width);
+        var sx = 0;
+        var sy = 0;
+        var sWidth = currWidth;
+        var sHeight = this.image.height;
+        var dx = this.imageX;
+        var dy = this.imageY;
+        var dWidth = currWidth
+        var dHeight = this.image.height;
+        gc.drawImage(this.image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+        //  gc.strokeRect(dx - 2, dy, dWidth, dHeight);
+
+        dx += currWidth;
+        while (dx < canvas.width) {
+            currWidth = Math.min(canvas.width - dx, this.image.width);
+            sWidth = currWidth;
+            dWidth = currWidth;
+            gc.drawImage(this.image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+            //       gc.strokeRect(dx, dy, currWidth, image.height);
+            dx += currWidth;
+        }
+    }
+
+    drawBackground() {
+        this.addLeft();
+        this.addRight();
+    }
+}
+
 class Level {
     constructor(track = Track, spawnPoints = []) {
         this.track = track;
@@ -27,12 +90,17 @@ class TrackEvent {
     update() {
         // if event has started and is not completed
         if (this.started && !this.ended) {
+            var spawnsLeft = 0;
             for (var i = 0; i < this.spawnPoints.length; i++) {
+                var sp = this.spawnPoints[i].spawnMax - this.spawnPoints[i].spawnCount;
+                spawnsLeft += Math.max(0,sp);
                 this.spawnPoints[i].spawnEnemy();
+            //    console.log(spawnsLeft);
             }
-        }
-        if (this.body.hp <= 0) {
-            this.end();
+
+            if (this.body.hp <= 0 || spawnsLeft <= 0) {
+                this.end();
+            }
         }
     }
 }
@@ -40,22 +108,36 @@ class TrackEvent {
 function getLevel1() {
     var track = new Track([
         TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
+        //  TrackBuilder.buildHoizontalLine(),
+        //  TrackBuilder.buildHoizontalLine(),
         TrackBuilder.buildHoizontalLine(),
+        TrackBuilder.buildCircle(),
+     //   TrackBuilder.buildHoizontalLine(),
         TrackBuilder.buildHoizontalLine(),
         TrackBuilder.buildCircle(),
         TrackBuilder.buildHoizontalLine(),
         TrackBuilder.buildHoizontalLine(),
-        TrackBuilder.buildCircle(),
-        TrackBuilder.buildHoizontalLine(),
-        TrackBuilder.buildHoizontalLine(),
-        TrackBuilder.buildCircle(),
+        //  TrackBuilder.buildHoizontalLine(),
+        //  TrackBuilder.buildCircle(),
     ]);
 
     TrackBuilder.linkTracks(track.parts);
+    //  var body = EntityBuilder.buildEmptyBody(new Vec2(0, 0));
+    var body0 = EntityBuilder.buildEmptyBody(new Vec2(0, 0));
+
+    // event 0
+    var event0 = new TrackEvent(
+        body0,
+        [
+            new Spawner(new Vec2(canvas.width * 0.75, canvas.height * 0.75), 10, 2000, { chaser: 1.0 }),
+            new Spawner(new Vec2(canvas.width * 0.75, canvas.height * 0.25), 10, 2000, { chaser: 1.0 }),
+        ]
+    );
+    track.parts[1].events.push(event0);
 
     // event 1
 
-    var center = computeCenterOfPoints(track.parts[3].points);
+    var center = computeCenterOfPoints(track.parts[2].points);
     var body = EntityBuilder.buildDestroyEventBody(center);
 
     var position1 = body.position.add(new Vec2(0, 0));
@@ -69,9 +151,9 @@ function getLevel1() {
             new Spawner(position2, 999, 2000, { runner: 0.5, chaser: 0.5 }),
             new Spawner(position3, 999, 2000, { runner: 0.5, chaser: 0.5 }),
         ],
-    )
+    );
 
-    track.parts[3].events.push(event1);
+    track.parts[2].events.push(event1);
 
     return track;
 }
@@ -166,6 +248,10 @@ var canvas = document.getElementById("canvas");
 var gc = canvas.getContext("2d");
 var cameraDefault = new Vec2(-canvas.width / 2, -canvas.height / 2);
 
+var background = new Image();
+background.src = "images/background.png";
+var bis = new BackgroundImageScroller(background);
+
 var enemies = [];
 var bullets = [];
 
@@ -203,6 +289,15 @@ function mainLoop() {
         setCamera();
         // renderer.js draw()
         draw();
+
+
+        if (keyBoard.isDown(KeyCode.UP_ARROW)) {
+            bis.imageX -= 5;
+        }
+
+        if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
+            bis.imageX += 5;
+        }
     }
 }
 

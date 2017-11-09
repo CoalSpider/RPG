@@ -352,6 +352,18 @@ class EntityBuilder {
         }
         return new Entity(data);
     }
+
+    static buildEmptyBody(position){
+        var data = {
+            id: -999,
+            position: position,
+            bounds: new CircleBounds(10),
+            velocity: new Vec2(0,0),
+            maxHP: 999,
+            hp: 999,
+        }
+        return new Entity(data);
+    }
 }
 var RatioTable = {
     runner: 0,
@@ -413,6 +425,7 @@ class Spawner {
             this.oldTime = Date.now();
             enemies.push(this.getRandomEnemy());
             this.spawnCount += 1;
+            console.log('spawn enemt = ' + this.spawnCount);
         }
     }
 }

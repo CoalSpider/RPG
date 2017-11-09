@@ -5,28 +5,17 @@ class Track {
         this.current = parts[0];
 
         this.transitionPoint = this.current.linkForward;
+        this.scrolling = false;
     }
 
     moveTrack(isForward) {
         var newIndx = this.parts.indexOf(this.current);
         newIndx += (isForward) ? 1 : -1;
-        for(var i = 0; i < this.current.events.length; i++){
-            if(this.current.events[i].ended==true){
-                this.current.events.splice(i,1);
-                i--;
-            }
-        }
-        console.log(this.current.events.length);
-        if(this.current.events.length > 0){
-            if(this.current.events[0].started==false)
-                this.current.events[0].start();
-                enemies.push(this.current.events[0].body);
-        } else {
-            if (newIndx < this.parts.length && newIndx >= 0) {
-                /** TODO: if event for track peice is not over dont move forward */
-                this.current = this.parts[newIndx];
-                this.transitionPoint = this.current.linkForward;
-            }
+
+        if (newIndx < this.parts.length && newIndx >= 0) {
+            this.current = this.parts[newIndx];
+            console.log("moved track");
+            this.transitionPoint = this.current.linkForward;
         }
     }
 
@@ -35,10 +24,38 @@ class Track {
     }
 
     forward() {
+        for (var i = 0; i < this.current.events.length; i++) {
+            if (this.current.events[i].ended == true) {
+                this.current.events.splice(i, 1);
+                i--;
+            }
+        }
+        if (this.current.events.length > 0) {
+            if (this.current.events[0].started == false) {
+                this.current.events[0].start();
+                enemies.push(this.current.events[0].body);
+            }
+            var pnts = this.current.points;
+            var mid = pnts[0].add(pnts[pnts.length - 1].sub(pnts[0]).multLocal(0.5));
+            // if were in the middle of the current track
+            if (distSqrd(this.current.currentPoint, mid) < 1) {
+                console.log("scrolling");
+               this.scrolling = true;
+            } else {
+                this.current.forward();
+            }
+        } else {
+            this.scrolling = false;
+            this.current.forward();
+            if (this.transitionPoint != undefined && this.hitTransition()) {
+                this.moveTrack(true);
+            }
+        }
+        /*
         this.current.forward();
         if (this.transitionPoint != undefined && this.hitTransition()) {
             this.moveTrack(true);
-        }
+        }*/
     }
 
     backward() {
@@ -183,9 +200,46 @@ class TrackPart {
     }
 }
 
+/** TODO: calc from base then shift as tracks link together */
+function calcImgPosCatmull(points){
+    var result = [];
+    for(var i = 0; i < points.length; i++){
+        var p1 = points[(i + 0) % points.length];
+        var p2 = points[(i + 1) % points.length];
+        var p3 = points[(i + 2) % points.length];
+        var p4 = points[(i + 3) % points.length];
+        var step = 0.2;
+        for (var j = 0.1; j < 1; j += step) {
+            var ip1 = Interpolator.catmullRom(p1, p2, p3, p4, j-0.1);
+            var ip2 = Interpolator.catmullRom(p1, p2, p3, p4, j);
+            var rad = angleBetween(ip1, ip2);
+            var pos = new Vec2(ip1.x, ip1.y);
+            result.push({position:pos,angleRad:rad});
+        }
+    }
+    return result;
+}
+
+function calcImgPosLinear(points){
+    var result = [];
+    for(var i = 0; i < points.length-1; i++){
+        var p1 = points[i];
+        var p2 = points[i + 1];
+        var step = 0.2;
+        for (var j = 0.1; j < 1; j += step) {
+            var ip1 = Interpolator.linear(p1, p2, j-0.1);
+            var ip2 = Interpolator.linear(p1, p2, j);
+            var rad = angleBetween(ip1, ip2);
+            var pos = new Vec2(ip1.x, ip1.y);
+            result.push({position:pos,angleRad:rad});
+        }
+    }
+    return result;
+}
+
 function circlePoints() {
     var points = [];
-    for (var i = 0; i < 360; i += 60) {
+    for (var i = 0; i < 360; i += 30) {
         var rad = toRad(i + 180);
         var radius = 200;
         var nX = (canvas.width / 2) + (radius * Math.cos(rad));
@@ -197,8 +251,8 @@ function circlePoints() {
 
 function linePoints() {
     var points = [];
-    points.push(new Vec2(0, 0));
-    for (var i = 0; i < 4; i++) {
+    points.push(new Vec2(-100, 0));
+    for (var i = 0; i < 10; i++) {
         points.push(points[points.length - 1].add(new Vec2(100, 0)));
     }
     return points;
