@@ -78,19 +78,6 @@ function clearCanvas() {
     gc.strokeRect(0, 0, canvas.width, canvas.height);
 }
 
-function drawBossAmalgamate(boss) {
-    var color = "black";
-    var hpColor = "grey";
-    var parts = boss.parts;
-    for (var i = 0, j = parts.length; i < j; i++) {
-        var e = parts[i];
-        drawBounds(e.position.add(camera), e.bounds);
-        if (e.hp != undefined) {
-            drawHPBar(e, color, hpColor);
-        }
-    }
-}
-
 function drawEnemies() {
     for (var i = 0; i < enemies.length; i++) {
         var e = enemies[i];
@@ -108,8 +95,9 @@ function drawEnemies() {
             case 6: color = "pink"; hpColor = "black"; break;
             case 7: color = "pink"; hpColor = "black"; break;
             case 8: color = "pink"; hpColor = "black"; break;
-            case 100: drawBossAmalgamate(e); color = "black"; hpColor = "grey"; break;
-            default: color = "black", hpColor = "white"; break;
+            case 100: color = "black"; hpColor = "grey"; break;
+            case -1: //console.log(e.position);
+            default: color = "black", hpColor = "red"; break;
         }
         gc.strokeStyle = color;
         drawBounds(pos, bounds);
@@ -143,9 +131,15 @@ imgTrack.src = "images/track.png"
 var drawStuff = [];
 var animationShift = 0;
 function drawTrack() {
-    if(track.scrolling && keyBoard.isDown(KeyCode.UP_ARROW)){
-        animationShift -= 5;
-        animationShift = (animationShift < -60) ? 0 : animationShift;
+    if(track.scrolling){
+        if(keyBoard.isDown(KeyCode.UP_ARROW)){
+            animationShift -= 5;
+            animationShift = (animationShift < -60) ? 0 : animationShift;
+        }
+        if(keyBoard.isDown(KeyCode.DOWN_ARROW)){
+            animationShift += 5;
+            animationShift = (animationShift >= 0) ? -60 : animationShift;
+        }
     }
     gc.strokeStyle = "purple";
     for (var i = 0; i < track.parts.length; i++) {

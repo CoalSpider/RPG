@@ -117,16 +117,19 @@ class Amalgamate extends Entity {
         this.parts = [];
         var innerParts = this.buildInner();
         for (var i = 0, j = innerParts.length; i < j; i++) {
-            this.parts.push(innerParts[i]);
+            // this.parts.push(innerParts[i]);
+            enemies.push(innerParts[i]);
         }
         var middleParts = this.buildMidle();
         for (var i = 0, j = middleParts.length; i < j; i++) {
-            this.parts.push(middleParts[i]);
+            // this.parts.push(middleParts[i]);
+            enemies.push(middleParts[i]);
         }
-        //  var outerParts = this.buildOuter();
-        //  for (var i = 0, j = outerParts.length; i < j; i++) {
-        //       this.parts.push(outerParts[i]);
-        //   }
+        var outerParts = this.buildOuter();
+        for (var i = 0, j = outerParts.length; i < j; i++) {
+            //       this.parts.push(outerParts[i]);
+            enemies.push(outerParts[i]);
+        }
         this.detonationTimer = Date.now();
         this.fireTimer = Date.now();
         this.rotationSpeed = 1;
@@ -141,14 +144,15 @@ class Amalgamate extends Entity {
             var data = {
                 id: -1,
                 position:
-                Vec2
-                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
-                    .addLocal(this.position),
+                    Vec2
+                        .rotateLocalV(new Vec2(distFromCenter, 0), toRad((360 / count) * i))
+                        .addLocal(this.position),
                 bounds: new CircleBounds(radius),
                 velocity: new Vec2(0, 0),
                 maxHP: 15,
                 hp: 15,
             }
+            var e = new Entity(data);
             innerParts.push(new Entity(data));
         }
         return innerParts;
@@ -161,11 +165,11 @@ class Amalgamate extends Entity {
         var count = 16;
         for (var i = 0; i < count; i++) {
             var data = {
-                id: -2,
+                id: -1,
                 position:
-                Vec2
-                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
-                    .addLocal(this.position),
+                    Vec2
+                        .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
+                        .addLocal(this.position),
                 bounds: new CircleBounds(radius),
                 velocity: new Vec2(0, 0),
                 maxHP: 5,
@@ -183,11 +187,11 @@ class Amalgamate extends Entity {
         var count = 32;
         for (var i = 0; i < count; i++) {
             var data = {
-                id: -3,
+                id: -1,
                 position:
-                Vec2
-                    .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
-                    .addLocal(this.position),
+                    Vec2
+                        .rotateLocalV(new Vec2(distFromCenter, 0), toRad(360 / count * i))
+                        .addLocal(this.position),
                 bounds: new CircleBounds(radius),
                 velocity: new Vec2(0, 0),
                 maxHP: 2,
@@ -200,16 +204,16 @@ class Amalgamate extends Entity {
 
     update() {
         super.update();
-        for (var i = 0; i < this.parts.length; i++) {
-            this.parts[i].update();
-        }
+        //  for (var i = 0; i < this.parts.length; i++) {
+        //       this.parts[i].update();
+        //  }
         if (this.hp / this.maxHP < 0.75) {
-            if(Date.now() - this.detonationTimer >= 5000){
+            if (Date.now() - this.detonationTimer >= 5000) {
                 this.detonate();
                 this.detonationTimer = Date.now();
             }
         }
-        if(Date.now() - this.fireTimer >= 2000){
+        if (Date.now() - this.fireTimer >= 2000) {
             this.shootAtPlayer();
             this.fireTimer = Date.now();
         }
@@ -219,23 +223,19 @@ class Amalgamate extends Entity {
     detonate() {
         var outerParts = this.buildOuter();
         for (var i = 0, j = outerParts.length; i < j; i++) {
-            this.parts.push(outerParts[i]);
-        }
-        for (var i = 0; i < this.parts.length; i++) {
-            var p = this.parts[i];
-            if (p.id == -3) {
-                p.velocity = p
-                    .position
-                    .sub(this.position)
-                    .normalizeLocal()
-                    .multLocal(10);
-
-            }
+            var p = outerParts[i];
+            //TODO: doesnt work get it to work
+            p.velocity = p
+                .position
+                .sub(this.position)
+                .normalizeLocal()
+                .multLocal(10);
+            enemies.push(p);
         }
     }
 
-    shootAtPlayer(){
-        enemies.push(EntityBuilder.buildDarter(this.position.copy(),this.target));
+    shootAtPlayer() {
+        enemies.push(EntityBuilder.buildDarter(this.position.copy(), this.target));
     }
 }
 
@@ -340,25 +340,25 @@ class EntityBuilder {
         return new Amalgamate(data, target);
     }
 
-    static buildDestroyEventBody(position){
+    static buildDestroyEventBody(position) {
         // destroyEvent
         var data = {
             id: -999,
             position: position,
             bounds: new CircleBounds(50),
-            velocity: new Vec2(0,0),
+            velocity: new Vec2(0, 0),
             maxHP: 100,
             hp: 100,
         }
         return new Entity(data);
     }
 
-    static buildEmptyBody(position){
+    static buildEmptyBody(position) {
         var data = {
             id: -999,
             position: position,
             bounds: new CircleBounds(10),
-            velocity: new Vec2(0,0),
+            velocity: new Vec2(0, 0),
             maxHP: 999,
             hp: 999,
         }
@@ -374,9 +374,8 @@ var RatioTable = {
     fatty: 0,
     mage: 0,
     priest: 0,
-    amalgamate: 0,
 }
-var ids = [1, 2, 3, 4, 5, 6, 7, 8, 100];
+var ids = [1, 2, 3, 4, 5, 6, 7, 8];
 
 class Spawner {
     constructor(position = Vec2, spawnMax = 1, delay = 1000, ratioTable = RatioTable) {
@@ -394,7 +393,6 @@ class Spawner {
             this.ratioTable.fatty,
             this.ratioTable.mage,
             this.ratioTable.priest,
-            this.ratioTable.amalgamate,
         ]
         this.weightedSum = 0;
         for (var i = 0, j = this.weights.length; i < j; i++) {

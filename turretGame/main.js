@@ -93,12 +93,12 @@ class TrackEvent {
             var spawnsLeft = 0;
             for (var i = 0; i < this.spawnPoints.length; i++) {
                 var sp = this.spawnPoints[i].spawnMax - this.spawnPoints[i].spawnCount;
-                spawnsLeft += Math.max(0,sp);
+                spawnsLeft += Math.max(0, sp);
                 this.spawnPoints[i].spawnEnemy();
-            //    console.log(spawnsLeft);
+                //    console.log(spawnsLeft);
             }
 
-            if (this.body.hp <= 0 || spawnsLeft <= 0) {
+            if (this.body.hp <= 0 || (this.spawnPoints.length > 0 && spawnsLeft <= 0)) {
                 this.end();
             }
         }
@@ -107,60 +107,91 @@ class TrackEvent {
 
 function getLevel1() {
     var track = new Track([
+        // start
         TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
-        //  TrackBuilder.buildHoizontalLine(),
-        //  TrackBuilder.buildHoizontalLine(),
+        // e1
         TrackBuilder.buildHoizontalLine(),
+        // mini boss
         TrackBuilder.buildCircle(),
-     //   TrackBuilder.buildHoizontalLine(),
+        // e2
         TrackBuilder.buildHoizontalLine(),
+        // boss
         TrackBuilder.buildCircle(),
+        // vistory lap
         TrackBuilder.buildHoizontalLine(),
         TrackBuilder.buildHoizontalLine(),
-        //  TrackBuilder.buildHoizontalLine(),
-        //  TrackBuilder.buildCircle(),
     ]);
 
+    // attach all track parts, this also moves them into position
     TrackBuilder.linkTracks(track.parts);
-    //  var body = EntityBuilder.buildEmptyBody(new Vec2(0, 0));
-    var body0 = EntityBuilder.buildEmptyBody(new Vec2(0, 0));
 
-    // event 0
-    var event0 = new TrackEvent(
-        body0,
+    // first event set
+    var p1 = track.parts[1].points[0];
+    var p2 = track.parts[1].points[track.parts[1].points.length - 1];
+    var spawnTimer = 4000;
+    track.parts[1].events.push(new TrackEvent(
+        EntityBuilder.buildEmptyBody(new Vec2(0, 0)),
         [
-            new Spawner(new Vec2(canvas.width * 0.75, canvas.height * 0.75), 10, 2000, { chaser: 1.0 }),
-            new Spawner(new Vec2(canvas.width * 0.75, canvas.height * 0.25), 10, 2000, { chaser: 1.0 }),
+            new Spawner(new Vec2(0, -canvas.height * 0.25).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
+            new Spawner(new Vec2(0, 0).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
+            new Spawner(new Vec2(0, canvas.height * 0.25).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
         ]
-    );
-    track.parts[1].events.push(event0);
+    ));
+    track.parts[1].events.push(new TrackEvent(
+        EntityBuilder.buildEmptyBody(new Vec2(0, 0)),
+        [
+            new Spawner(new Vec2(0, -canvas.height * 0.25).addLocal(p1), 10, spawnTimer, { chaser: 1.0 }),
+            new Spawner(new Vec2(0, 0).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
+            new Spawner(new Vec2(0, canvas.height * 0.25).addLocal(p1), 10, spawnTimer, { chaser: 1.0 }),
+        ]
+    ));
 
-    // event 1
 
+    // second event set mini boss
     var center = computeCenterOfPoints(track.parts[2].points);
     var body = EntityBuilder.buildDestroyEventBody(center);
-
     var position1 = body.position.add(new Vec2(0, 0));
     var position2 = body.position.add(new Vec2(-0, 0));
     var position3 = body.position.add(new Vec2(0, -0));
-
-    var event1 = new TrackEvent(
+    track.parts[2].events.push(new TrackEvent(
         body,
         [
             new Spawner(position1, 999, 2000, { runner: 0.5, chaser: 0.5 }),
             new Spawner(position2, 999, 2000, { runner: 0.5, chaser: 0.5 }),
             new Spawner(position3, 999, 2000, { runner: 0.5, chaser: 0.5 }),
         ],
-    );
+    ));
 
-    track.parts[2].events.push(event1);
+    // third event set
+    var p3 = track.parts[3].points[0];
+    var p4 = track.parts[3].points[track.parts[3].points.length-1];
+    var c = p3.add(p4.sub(p3).multLocal(0.5));
+    track.parts[3].events.push(new TrackEvent(
+        EntityBuilder.buildEmptyBody(new Vec2(0,0)),
+        [
+            new Spawner(new Vec2(-canvas.width*0.25,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1}),
+            new Spawner(new Vec2(0,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1}),
+            new Spawner(new Vec2(canvas.width*0.25,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1})
+        ]
+    ));
 
-    return track;
+    // fourth event set boss amalgamate
+    var bossPos = computeCenterOfPoints(track.parts[4].points);
+    track.parts[4].events.push(new TrackEvent(
+        EntityBuilder.buildAmalgamate(bossPos,player),
+        []
+    ));
+
+    return track; 
 }
 
 function isOutOfBounds(position = Vec2) {
-    var p = position.add(camera);
-    return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height;
+    var p = position;//.add(camera);
+    var p2 = player.position;
+    var delta = p2.sub(p);
+    //return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height;
+    // if distSquared > somePixelDistanceSquared
+    return (delta.x * delta.x + delta.y * delta.y) > 750 * 750;
 }
 
 function update() {
@@ -177,6 +208,7 @@ function update() {
     // update enemies
     for (var i = 0; i < enemies.length; i++) {
         enemies[i].update();
+        if(enemies[i].id==-1)continue;
         if (isOutOfBounds(enemies[i].position)) {
             enemies.splice(i, 1);
             i--;

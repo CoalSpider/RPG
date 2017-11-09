@@ -138,7 +138,7 @@ class TrackPart {
     }
 
     forward() {
-        this.percentBetweenTargets += 0.02;
+        this.percentBetweenTargets += 0.04;
         if (this.percentBetweenTargets >= 1) {
             if (this.isWrapping) {
                 this.circularList.pointer = this.circularList.indexOf(this.splineHelperBehind);
@@ -169,7 +169,7 @@ class TrackPart {
     }
 
     backward() {
-        this.percentBetweenTargets -= 0.02;
+        this.percentBetweenTargets -= 0.04;
         if (this.percentBetweenTargets < 0) {
             if (this.isWrapping) {
                 this.circularList.pointer = this.circularList.indexOf(this.splineHelperForward);
