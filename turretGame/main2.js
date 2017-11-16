@@ -60,53 +60,52 @@ class BackgroundImageScroller {
         this.addRight();
     }
 }
-
-class Level {
-    constructor(track = Track, spawnPoints = []) {
-        this.track = track;
-        this.spawnPoints = spawnPoints;
-    }
-}
-
 class TrackEvent {
-    constructor(body = Entity, spawnPoints = []) {
-        this.body = body;
-        this.spawnPoints = spawnPoints;
+    constructor(bodies = []) {
+        this.bodies = bodies;
         this.started = false;
         this.ended = false;
     }
-
     start() {
+        console.log("started");
         this.started = true;
         this.isOver = false;
+
+        for (var i = 0; i < this.bodies.length; i++) {
+            entityManager.registerEntity(this.bodies[i]);
+        }
     }
 
     end() {
+        console.log("ended");
         this.ended = true;
-        // clear spawnpoints
-        this.spawnPoints.splice(0, this.spawnPoints.length - 1);
+
+        for (var i = 0; i < this.bodies.length; i++) {
+            entityManager.markForRemoval(this.bodies[i]);
+        }
+
+        entityManager.removeMarkedEntities();
+        this.bodies.splice(0, this.bodies.length);
     }
 
     update() {
         // if event has started and is not completed
         if (this.started && !this.ended) {
-            var spawnsLeft = 0;
-            for (var i = 0; i < this.spawnPoints.length; i++) {
-                var sp = this.spawnPoints[i].spawnMax - this.spawnPoints[i].spawnCount;
-                spawnsLeft += Math.max(0, sp);
-                this.spawnPoints[i].spawnEnemy();
-                //    console.log(spawnsLeft);
+            for (var i = 0; i < this.bodies.length; i++) {
+                if (entityManager.isEntityRegistered(this.bodies[i]) == false) {
+                    this.bodies.splice(i, 1);
+                    i--;
+                }
             }
-
-            if (this.body.hp <= 0 || (this.spawnPoints.length > 0 && spawnsLeft <= 0)) {
+            if (this.bodies.length <= 0) {
                 this.end();
             }
         }
     }
 }
 
-function getLevel1() {
-    var track = new Track([
+function loadLevelOne() {
+    track = new Track([
         // start
         TrackBuilder.shiftTrack(TrackBuilder.buildHoizontalLine(), new Vec2(50, canvas.height / 2)),
         // e1
@@ -125,134 +124,127 @@ function getLevel1() {
     // attach all track parts, this also moves them into position
     TrackBuilder.linkTracks(track.parts);
 
-    // first event set
     var p1 = track.parts[1].points[0];
     var p2 = track.parts[1].points[track.parts[1].points.length - 1];
-    var spawnTimer = 4000;
+    var mid = p1.add(p2.sub(p1).multLocal(0.5));
     track.parts[1].events.push(new TrackEvent(
-        EntityBuilder.buildEmptyBody(new Vec2(0, 0)),
         [
-            new Spawner(new Vec2(0, -canvas.height * 0.25).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
-            new Spawner(new Vec2(0, 0).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
-            new Spawner(new Vec2(0, canvas.height * 0.25).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
+            EntityFactory.buildSpawner(new Vec2(0, -canvas.height/4).addLocal(p2),2,4000,{chaser: 1.0},player),
+            EntityFactory.buildSpawner(p2,2,4000,{chaser: 1.0},player),
+            EntityFactory.buildSpawner(new Vec2(0, canvas.height/4).addLocal(p2),2,4000,{chaser: 1.0},player),
         ]
     ));
     track.parts[1].events.push(new TrackEvent(
-        EntityBuilder.buildEmptyBody(new Vec2(0, 0)),
         [
-            new Spawner(new Vec2(0, -canvas.height * 0.25).addLocal(p1), 10, spawnTimer, { chaser: 1.0 }),
-            new Spawner(new Vec2(0, 0).addLocal(p2), 10, spawnTimer, { chaser: 1.0 }),
-            new Spawner(new Vec2(0, canvas.height * 0.25).addLocal(p1), 10, spawnTimer, { chaser: 1.0 }),
+            EntityFactory.buildSpawner(new Vec2(0, -canvas.height/4).addLocal(p1), 10, 4000, { chaser: 1.0 },player),
+            EntityFactory.buildSpawner(new Vec2(0, 0).addLocal(p2), 10, 4000, { chaser: 1.0 },player),
+            EntityFactory.buildSpawner(new Vec2(0, canvas.height/4).addLocal(p1), 10, 4000, { chaser: 1.0 },player),
         ]
     ));
 
-
-    // second event set mini boss
     var center = computeCenterOfPoints(track.parts[2].points);
-    var body = EntityBuilder.buildDestroyEventBody(center);
-    var position1 = body.position.add(new Vec2(0, 0));
-    var position2 = body.position.add(new Vec2(-0, 0));
-    var position3 = body.position.add(new Vec2(0, -0));
     track.parts[2].events.push(new TrackEvent(
-        body,
         [
-            new Spawner(position1, 999, 2000, { runner: 0.5, chaser: 0.5 }),
-            new Spawner(position2, 999, 2000, { runner: 0.5, chaser: 0.5 }),
-            new Spawner(position3, 999, 2000, { runner: 0.5, chaser: 0.5 }),
-        ],
-    ));
-
-    // third event set
-    var p3 = track.parts[3].points[0];
-    var p4 = track.parts[3].points[track.parts[3].points.length-1];
-    var c = p3.add(p4.sub(p3).multLocal(0.5));
-    track.parts[3].events.push(new TrackEvent(
-        EntityBuilder.buildEmptyBody(new Vec2(0,0)),
-        [
-            new Spawner(new Vec2(-canvas.width*0.25,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1}),
-            new Spawner(new Vec2(0,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1}),
-            new Spawner(new Vec2(canvas.width*0.25,-canvas.height*0.5).addLocal(c),10,4000,{chaser:0.9,darter:0.1})
+            EntityFactory.buildDestroyEventBody(center),
+            EntityFactory.buildSpawner(center, 20, 4000, { runner: 0.5, chaser: 0.5 },player),
+            EntityFactory.buildSpawner(center, 20, 4000, { runner: 0.5, chaser: 0.5 },player),
+            EntityFactory.buildSpawner(center, 20, 4000, { runner: 0.5, chaser: 0.5 },player),
         ]
     ));
 
-    // fourth event set boss amalgamate
+    var p3 = track.parts[3].points[0];
+    var p4 = track.parts[3].points[track.parts[3].points.length - 1];
+    var mid2 = p3.add(p4.sub(p3).multLocal(0.5));
+    track.parts[3].events.push(new TrackEvent(
+        [
+            EntityFactory.buildSpawner(new Vec2(-canvas.width/4,-canvas.height/2).addLocal(mid2), 10, 4000, { chaser:0.9,darter:0.1 },player),
+            EntityFactory.buildSpawner(new Vec2(0,-canvas.height/2).addLocal(mid2), 10, 4000, { chaser:0.9,darter:0.1 },player),
+            EntityFactory.buildSpawner(new Vec2(canvas.width/4,-canvas.height/2).addLocal(mid2), 10, 4000, { chaser:0.9,darter:0.1 },player),
+        ]
+    ));
+
     var bossPos = computeCenterOfPoints(track.parts[4].points);
     track.parts[4].events.push(new TrackEvent(
-        EntityBuilder.buildAmalgamate(bossPos,player),
-        []
+        [
+            EntityFactory.buildAmalgamate(bossPos,player),
+        ]
     ));
-
-    return track; 
-}
-
-function isOutOfBounds(position = Vec2) {
-    var p = position;//.add(camera);
-    var p2 = player.position;
-    var delta = p2.sub(p);
-    //return p.x < 0 || p.y < 0 || p.x > canvas.width || p.y > canvas.height;
-    // if distSquared > somePixelDistanceSquared
-    return (delta.x * delta.x + delta.y * delta.y) > 750 * 750;
 }
 
 function update() {
-    // update player
-    player.update(track);
-
-    // update track events
-    for (var i = 0; i < track.parts.length; i++) {
-        for (var j = 0; j < track.parts[i].events.length; j++) {
-            track.parts[i].events[j].update();
+    var aiUpdateList = entityManager.getEntitiesWithComponentID(ComponentID.AI);
+    if (aiUpdateList != undefined) {
+        for (var i = 0; i < aiUpdateList.length; i++) {
+            aiUpdateList[i].getComponent(ComponentID.AI).update();
         }
     }
 
-    // update enemies
-    for (var i = 0; i < enemies.length; i++) {
-        enemies[i].update();
-        if(enemies[i].id==-1)continue;
-        if (isOutOfBounds(enemies[i].position)) {
-            enemies.splice(i, 1);
-            i--;
-        }
+    var event = track.current.events[0];
+    if (event != undefined && event.started) {
+        event.update();
     }
 
-    // update bullets
-    for (var i = 0; i < bullets.length; i++) {
-        bullets[i].update();
-        if (isOutOfBounds(bullets[i].position)) {
-            bullets.splice(i, 1);
-            i--;
+    entityManager.markOutOfBounds();
+    entityManager.markDead();
+    entityManager.markEmptySpawners();
+}
+
+function collides(p1, b1, entity = ComponentEntity) {
+    var p2 = entity.getComponent(ComponentID.PHYSICAL).position;
+    var b2 = entity.getComponent(ComponentID.COLLISION).bounds;
+    if (b1 instanceof Circle) {
+        if (b2 instanceof Circle) {
+            return circleCircleCollision(p1, b1.radius, p2, b2.radius);
+        } else if (b2 instanceof Rectangle) {
+            return circleBoxCollision(p1, b1.radius, p2, b2);
+        } else {
+            throw new Error("unkown bounds in entity");
         }
+    } else if (b1 instanceof Rectangle) {
+        if (b2 instanceof Circle) {
+            return circleBoxCollision(p2, b2.radius, p1, b1);
+        } else if (b2 instanceof Rectangle) {
+            throw new Error("rectangle rectagle collision check not implemented");
+        } else {
+            throw new Error("unkown bounds in entity");
+        }
+    } else {
+        throw new Error("unknown bounds argument");
     }
 }
 
 function checkCollision() {
-    // enemy bullet check
-    enemyLoop: for (var i = 0; i < enemies.length; i++) {
-        var e = enemies[i];
-        bulletLoop: for (var j = 0; j < bullets.length; j++) {
-            var b = bullets[j];
-            var collide = circleCircleCollision(b.position, b.bounds.radius + 2, e.position, e.bounds.radius);
-            if (collide) {
-                bullets.splice(j, 1);
-                j--;
-                e.hp -= 1;
-                if (e.hp <= 0) {
-                    enemies.splice(i, 1);
-                    i--;
-                    continue enemyLoop;
-                }
-            }
+    var collidables = entityManager.getEntitiesWithComponentID(ComponentID.COLLISION);
+    // brute force collision check of player verses enemies
+    var playerPos = player.getComponent(ComponentID.PHYSICAL).position;
+    var playerBounds = player.getComponent(ComponentID.COLLISION).bounds;
+    for (var i = 0; i < collidables.length; i++) {
+        var e = collidables[i];
+        if (e.id == EntityID.PLAYER) continue;
+        if (collides(playerPos, playerBounds, e)) {
+         //   if(e.hasComponent(ComponentID.HEALTH)){
+         //       e.getComponent(ComponentID.HEALTH).currentHealth -=1;
+         //   } else {
+                entityManager.markForRemoval(e);
+         //   }
+            player.getComponent(ComponentID.HEALTH).currentHealth -= 1;
         }
     }
-
-    // player enemy check
-    for (var i = 0; i < enemies.length; i++) {
-        var e = enemies[i];
-        var collide = circleBoxCollision(e.position, e.bounds.radius, player.position, player.bounds);
-        if (collide) {
-            player.hp -= 1;
-            enemies.splice(i, 1);
-            i--;
+    // brute force collision check player bullets vs enemy bodies
+    var bullets = entityManager.getEntitiesByID(EntityID.BULLET);
+    for(var i = 0; i < collidables.length; i++){
+        var e = collidables[i];
+        if(e.id == EntityID.PLAYER) continue;
+        var ePos = e.getComponent(ComponentID.PHYSICAL).position;
+        var eBounds = e.getComponent(ComponentID.COLLISION).bounds;
+        for(var j = 0; j < bullets.length; j++){
+            if(e == bullets[j]) continue;
+            if(collides(ePos,eBounds,bullets[j])){
+                entityManager.markForRemoval(bullets[j]);
+                if(e.hasComponent(ComponentID.HEALTH)){
+                    e.getComponent(ComponentID.HEALTH).currentHealth -= 1;
+                }
+            }
         }
     }
 }
@@ -272,30 +264,31 @@ function checkIfPlayerHasWon() {
     }
 }
 
+
 // set up keyboard
 var keyBoard = new Keyboard();
 keyBoard.listenForEvents();
-
+// set up canvas
 var canvas = document.getElementById("canvas");
 var gc = canvas.getContext("2d");
 var cameraDefault = new Vec2(-canvas.width / 2, -canvas.height / 2);
-
+// set up background
 var background = new Image();
 background.src = "images/background.png";
 var bis = new BackgroundImageScroller(background);
-
-var enemies = [];
-var bullets = [];
-
-var track = getLevel1();
-var player = new TurretBase(track, track.current.currentPoint);
+// build the player
+var player = undefined;
+// build out entity manager
+var entityManager = undefined;
 
 var playerHasWon = false;
+
+var track = undefined;
+
 function resetGame() {
-    player.hp = player.maxHP;
-    enemies.splice(0, enemies.length);
-    bullets.splice(0, bullets.length);
-    track = getLevel1();
+    player = EntityFactory.buildPlayer();
+    entityManager.clearManager();
+    loadLevelOne();
     playerHasWon = false;
 }
 
@@ -316,20 +309,43 @@ function mainLoop() {
     } else if (player.hp <= 0) { // if player has died
         showConfirmDialog("You Died! Continue?")
     } else { // play game
+        handleKeyboardInputs();
         update();
+        entityManager.removeMarkedEntities();
         checkCollision();
+        entityManager.removeMarkedEntities();
         setCamera();
         // renderer.js draw()
         draw();
+    }
+}
 
-
-        if (keyBoard.isDown(KeyCode.UP_ARROW)) {
-            bis.imageX -= 5;
+function handleKeyboardInputs() {
+    var p = player.getComponent(ComponentID.PHYSICAL);
+    if(keyBoard.isDown(KeyCode.W)){
+        var newBullet = player.getComponent(ComponentID.SHOOTER).fire();
+        if(newBullet != null){
+            entityManager.registerEntity(newBullet);
         }
+    }
+    if (keyBoard.isDown(KeyCode.UP_ARROW)) {
+        bis.imageX -= 5;
+        track.forward();
+        p.position = track.current.currentPoint;
+    }
 
-        if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
-            bis.imageX += 5;
-        }
+    if (keyBoard.isDown(KeyCode.DOWN_ARROW)) {
+        bis.imageX += 5;
+        track.backward();
+        p.position = track.current.currentPoint;
+    }
+
+    if (keyBoard.isDown(KeyCode.LEFT_ARROW)) {
+        p.rotate(-0.05);//rotationRadians -= 0.05;
+    }
+
+    if (keyBoard.isDown(KeyCode.RIGHT_ARROW)) {
+        p.rotate(0.05);//p.rotationRadians += 0.05;
     }
 }
 
@@ -340,7 +356,11 @@ function launchGame() {
     clearInterval(interval);
     // calls 60 times a second
     interval = setInterval(mainLoop, 1000 / 60);
-    track = getLevel1();
+    player = EntityFactory.buildPlayer(new Vec2(0, 0));
+    loadLevelOne();
+    player.getComponent(ComponentID.PHYSICAL).position = track.current.currentPoint;
+    entityManager = new EntityManager();
+    entityManager.registerEntity(player);
 }
 class EntryScreenButton {
     constructor(x, y, width, height) {
@@ -403,5 +423,3 @@ function showStartWindow() {
 }
 
 showStartWindow();
-
-

@@ -332,7 +332,7 @@ function circleCircleCollision(p0, r0, p1, r1) {
 }
 
 /* args == circle defined by a point+radius and a rectangle defined by a rectBounds and point*/
-function circleBoxCollision(p0, r0, p1, rectBounds) {
+function circleBoxCollision(p0=Vec2, r0=Number, p1=Vec2, rectBounds=Rectangle) {
     var pnts = rectBounds.getPoints(p1);
     var r1 = pnts[0];
     var r2 = pnts[1];

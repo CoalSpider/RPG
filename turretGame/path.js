@@ -33,7 +33,6 @@ class Track {
         if (this.current.events.length > 0) {
             if (this.current.events[0].started == false) {
                 this.current.events[0].start();
-                enemies.push(this.current.events[0].body);
             }
             var pnts = this.current.points;
             var mid = pnts[0].add(pnts[pnts.length - 1].sub(pnts[0]).multLocal(0.5));
